@@ -9,8 +9,8 @@ import (
 //Statement representa uma estrutura de instrução ao banco de dados
 //Ela é composta pelo statement, que é uma string parametrizada com o comando e pelos argumentos que irão substituir esses padrões
 type Statement struct {
-	statement string
-	args      []interface{}
+	Statement string
+	Args      []interface{}
 }
 
 // Database define uma interface de comunicação com o banco de dados
@@ -55,7 +55,7 @@ func (m *mySqlDatabase) Run(statements ...Statement) error {
 
 	for _, statement := range statements {
 		//interpolateParams=true
-		_, err = db.Exec(statement.statement, statement.args...)
+		_, err = db.Exec(statement.Statement, statement.Args...)
 		if err != nil {
 			tx.Rollback()
 			return err
