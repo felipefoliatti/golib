@@ -30,12 +30,13 @@ func NewMigrator(drivername *string, database *string, url *string) (*SqlMigrate
 	mig := new(SqlMigrateMigrator)
 	mig.url = url
 	mig.database = database
+	mig.drivername = drivername
 
-	db, err := sql.Open(*drivername, *mig.url)
+	db, err := sql.Open(*mig.drivername, *mig.url)
 	if err != nil {
 		return nil, err
 	}
-	_, err = db.Exec("CREATE DATABASE IF NOT EXISTS " + *database)
+	_, err = db.Exec("CREATE DATABASE IF NOT EXISTS " + *mig.database)
 	db.Close()
 
 	return mig, err
