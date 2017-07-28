@@ -45,7 +45,7 @@ func (l *LoggerSQS) LogIf(canlog bool, verbose bool, level string, info string, 
 		l.queue.Send(message)
 
 		if verbose == true {
-			log.Print(json)
+			log.Println(*message)
 		}
 
 		if action != nil {
