@@ -30,6 +30,7 @@ type Queue interface {
 // Um tipo SqsQueue deve ser instanciado com o nome da Queue e internamente ele
 // irá procurar pela URL ou, caso não exista, irá criar um tipo
 type sqsQueue struct {
+	endpoint  *string
 	region    *string
 	accessKey *string
 	secret    *string
@@ -41,8 +42,13 @@ type sqsQueue struct {
 // NewQueue inicia uma nova SqsQueue a partir de um nome
 // Se a fila não existir, ela será criada
 // Caso exista, apenas será retornada
-func NewQueue(name *string, accessKey *string, secret *string, region *string) (Queue, error) {
+func NewQueue(name *string, sufix *string, endpoint *string, accessKey *string, secret *string, region *string) (Queue, error) {
 	self := &sqsQueue{}
+	self.accessKey = accessKey
+	self.secret = secret
+	self.region = region
+	self.endpoint = endpoint
+	self.name = aws.String(*name + *sufix)
 	token := ""
 
 	creds := credentials.NewStaticCredentials(*accessKey, *secret, token)
@@ -52,7 +58,7 @@ func NewQueue(name *string, accessKey *string, secret *string, region *string) (
 		return nil, err
 	}
 
-	config := &aws.Config{Region: region, Credentials: creds}
+	config := &aws.Config{Region: region, Endpoint: self.endpoint, Credentials: creds}
 
 	sess := session.New(config)
 	svc := sqs.New(sess)
@@ -67,7 +73,7 @@ func NewQueue(name *string, accessKey *string, secret *string, region *string) (
 		//Verifica se é um erro de não existir
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == sqs.ErrCodeQueueDoesNotExist {
 			//Caso não exista, então cria a FIFO
-			params := &sqs.CreateQueueInput{QueueName: name, Attributes: map[string]*string{"FifoQueue": aws.String("true")}}
+			params := &sqs.CreateQueueInput{QueueName: self.name, Attributes: map[string]*string{"FifoQueue": aws.String("true")}}
 			resp, err := svc.CreateQueue(params)
 
 			//Caso haja erro, encerra
@@ -78,9 +84,6 @@ func NewQueue(name *string, accessKey *string, secret *string, region *string) (
 		}
 	}
 	self.svc = svc
-	self.accessKey = accessKey
-	self.secret = secret
-	self.region = region
 
 	return self, nil
 }
