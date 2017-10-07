@@ -1,6 +1,8 @@
 package golib
 
 import (
+	"strconv"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -30,25 +32,29 @@ type Queue interface {
 // Um tipo SqsQueue deve ser instanciado com o nome da Queue e internamente ele
 // irá procurar pela URL ou, caso não exista, irá criar um tipo
 type sqsQueue struct {
-	endpoint  *string
-	region    *string
-	accessKey *string
-	secret    *string
-	name      *string
-	url       *string
-	svc       *sqs.SQS
+	endpoint   *string
+	region     *string
+	accessKey  *string
+	secret     *string
+	name       *string
+	url        *string
+	svc        *sqs.SQS
+	visibility int
+	fifo       bool
 }
 
 // NewQueue inicia uma nova SqsQueue a partir de um nome
 // Se a fila não existir, ela será criada
 // Caso exista, apenas será retornada
-func NewQueue(name *string, sufix *string, endpoint *string, accessKey *string, secret *string, region *string) (Queue, error) {
+func NewQueue(name *string, sufix *string, endpoint *string, accessKey *string, secret *string, region *string, visibility int) (Queue, error) {
 	self := &sqsQueue{}
 	self.accessKey = accessKey
 	self.secret = secret
 	self.region = region
 	self.endpoint = endpoint
+	self.visibility = visibility
 	self.name = aws.String(*name + *sufix)
+	self.fifo = (*sufix == ".fifo")
 	token := ""
 
 	creds := credentials.NewStaticCredentials(*accessKey, *secret, token)
@@ -72,8 +78,16 @@ func NewQueue(name *string, sufix *string, endpoint *string, accessKey *string, 
 	} else {
 		//Verifica se é um erro de não existir
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == sqs.ErrCodeQueueDoesNotExist {
-			//Caso não exista, então cria a FIFO
-			params := &sqs.CreateQueueInput{QueueName: self.name, Attributes: map[string]*string{"FifoQueue": aws.String("true")}}
+
+			//Caso não exista, então cria a queue
+			attr := map[string]*string{}
+
+			attr["VisibilityTimeout"] = aws.String(strconv.Itoa(visibility))
+			if self.fifo { //only add FifoQueue if queue ends with .fifo
+				attr["FifoQueue"] = aws.String(strconv.FormatBool(self.fifo))
+			}
+
+			params := &sqs.CreateQueueInput{QueueName: self.name, Attributes: attr}
 			resp, err := svc.CreateQueue(params)
 
 			//Caso haja erro, encerra
@@ -117,7 +131,7 @@ func (q *sqsQueue) Read() ([]*Message, error) {
 		MessageAttributeNames: []*string{aws.String(sqs.QueueAttributeNameAll)},
 		QueueUrl:              q.url,
 		MaxNumberOfMessages:   aws.Int64(1),
-		VisibilityTimeout:     aws.Int64(20),
+		VisibilityTimeout:     aws.Int64(int64(q.visibility)),
 		WaitTimeSeconds:       aws.Int64(20),
 	})
 
