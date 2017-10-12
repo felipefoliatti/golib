@@ -1,7 +1,10 @@
 package golib
 
 import (
+	"net"
+	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -64,7 +67,10 @@ func NewQueue(name *string, sufix *string, endpoint *string, accessKey *string, 
 		return nil, err
 	}
 
-	config := &aws.Config{Region: region, Endpoint: self.endpoint, Credentials: creds}
+	var transport = &http.Transport{Dial: (&net.Dialer{Timeout: 15 * time.Second}).Dial, TLSHandshakeTimeout: 15 * time.Second}
+	var client = &http.Client{Timeout: time.Second * 30, Transport: transport}
+
+	config := &aws.Config{Region: region, Endpoint: self.endpoint, Credentials: creds, HTTPClient: client}
 
 	sess := session.New(config)
 	svc := sqs.New(sess)
