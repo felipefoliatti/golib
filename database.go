@@ -4,6 +4,7 @@ import (
 	"database/sql"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/jmoiron/sqlx"
 )
 
 //Statement representa uma estrutura de instrução ao banco de dados
@@ -18,6 +19,7 @@ type Statement struct {
 // Em caso de erro, um objeto error é retornado
 type Database interface {
 	Run(statement ...Statement) error
+	Query(dest interface{}, statement Statement) error
 }
 
 // MySqlDatabase é uma implementação concreta da interface Database para MySql
@@ -27,6 +29,7 @@ type mySqlDatabase struct {
 	drivername *string
 	url        *string
 	database   *string
+	timezone   string
 }
 
 // NewDatabase cria uma instância concreta do MySqlDatabase
@@ -38,7 +41,7 @@ func NewDatabase(drivername *string, database *string, url *string) Database {
 	my.drivername = drivername
 	my.url = url
 	my.database = database
-
+	my.timezone = "UTC"
 	return my
 }
 
@@ -63,6 +66,21 @@ func (m *mySqlDatabase) Run(statements ...Statement) error {
 	}
 
 	err = tx.Commit()
+
+	defer db.Close()
+	return err
+}
+
+// Query realiza a execução de uma consulta SQL
+// Se houver um erro, um objeto error é retornado
+func (m *mySqlDatabase) Query(dest interface{}, statements Statement) error {
+
+	db, err := sqlx.Open(*m.drivername, *m.url+*m.database /*+"?interpolateParams=true"*/)
+	if err != nil {
+		return err
+	}
+
+	err = db.Select(dest, statements.Statement, statements.Args...)
 
 	defer db.Close()
 	return err
