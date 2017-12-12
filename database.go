@@ -75,7 +75,7 @@ func (m *mySqlDatabase) Run(statements ...Statement) error {
 // Se houver um erro, um objeto error é retornado
 func (m *mySqlDatabase) Query(dest interface{}, statements Statement) error {
 
-	db, err := sqlx.Open(*m.drivername, *m.url+*m.database /*+"?interpolateParams=true"*/)
+	db, err := sqlx.Open(*m.drivername, *m.url+*m.database+"?parseTime=true" /*+"?interpolateParams=true"*/)
 	if err != nil {
 		return err
 	}
