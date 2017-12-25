@@ -114,18 +114,12 @@ func NewQueue(name *string, sufix *string, endpoint *string, accessKey *string, 
 func (q *sqsQueue) Send(content *string) (*string, error) {
 
 	guid := uuid.NewV4()
-	params := &sqs.SendMessageInput{
-		MessageBody: content,
-		QueueUrl:    q.url,
-	}
-
-	//Only Fifo can have these attributes
-	if q.fifo {
-		params.SetMessageDeduplicationId(guid.String())
-		params.SetMessageGroupId("base")
-	}
-
-	req, err := q.svc.SendMessage(params)
+	req, err := q.svc.SendMessage(&sqs.SendMessageInput{
+		MessageBody:            content,
+		QueueUrl:               q.url,
+		MessageDeduplicationId: aws.String(guid.String()),
+		MessageGroupId:         aws.String("base"),
+	})
 
 	if err != nil {
 		return nil, err
