@@ -2,32 +2,40 @@ package golib
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 	"os"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 )
 
-type Log struct {
+//Level indica o tipo de error que o logger irá lançar
+type Level string
+
+const (
+	//INFO é uma log de informação
+	INFO Level = "INFO"
+	//ERROR é um log de erro
+	ERROR = "ERROR"
+	//WARN é um log de aviso, quando alguma situação importante acontece
+	WARN = "WARN"
+	//FATAL é um log de erro grave, que interrompe o funcionamento do programa
+	FATAL = "FATAL"
+)
+
+type log struct {
 	Timestamp string `json:"timestamp"`
-	Type      string `json:"type"`
-	Location  string `json:"location"`
 	Level     string `json:"level"`
-	Container string `json:"container"`
 	Message   string `json:"message"`
+}
+
+//LoggerImpl define uma implementação de Logger para logar em console
+type LoggerImpl struct {
 }
 
 //Logger descreve uma interface de log de ero, que loga em diversas fontes, conforme suas implementações
 type Logger interface {
-	LogIf(canlog bool, verbose bool, level string, info string, message func() string, action func(*string))
-}
-
-//LoggerSQS define uma implementação de Logger para logar em filas SQS da Amazon, além do console
-type LoggerSQS struct {
-	queue    Queue
-	ttype    string
-	location string
+	LogIf(canlog bool, level Level, message func() string, action func(*string))
 }
 
 //LogIf realiza o log da informações no locais pertinentes, no Console e na Queue
@@ -36,16 +44,16 @@ type LoggerSQS struct {
 //Caso contrário, será executado a função de log.
 //O caso de info, caso não seja nil, não será adicionado mensagens anteriores à mensagem
 //Por fim, será executado a action, caso não seja nil
-func (l *LoggerSQS) LogIf(canlog bool, verbose bool, level string, info string, message func() string, action func(*string)) {
+func (l *LoggerImpl) LogIf(canlog bool, level Level, message func() string, action func(*string)) {
 	if canlog {
 
-		json, _ := json.Marshal(&Log{Timestamp: time.Now().Format("2006-01-02T15:04:05.000000Z"), Type: l.ttype, Location: l.location, Level: level, Message: info + "[mensagem:" + message() + "]"})
+		json, _ := json.Marshal(&log{Timestamp: time.Now().Format("2006-01-02T15:04:05.000000Z"), Level: fmt.Sprint(level), Message: message()})
 		message := aws.String(string(json))
-		//fmt.Println(string(json))
-		l.queue.Send(message)
 
-		if verbose == true {
-			log.Println(*message)
+		if level == ERROR || level == FATAL {
+			os.Stderr.WriteString(*message + "\n")
+		} else {
+			os.Stdout.WriteString(*message + "\n")
 		}
 
 		if action != nil {
@@ -57,9 +65,9 @@ func (l *LoggerSQS) LogIf(canlog bool, verbose bool, level string, info string, 
 //NewLogger cria um novo objeto Logger que irá logar numa fila AWS SQS.
 func NewLogger(queue Queue, erro error, ttype string, location string) Logger {
 	if erro != nil {
-		json, _ := json.Marshal(&Log{Timestamp: time.Now().Format("2006-01-02T15:04:05.000000Z"), Type: ttype, Location: location, Level: "FATAL", Message: "[mensagem:" + erro.Error() + "]"})
-		log.Print(string(json))
+		json, _ := json.Marshal(&log{Timestamp: time.Now().Format("2006-01-02T15:04:05.000000Z"), Level: fmt.Sprint(FATAL), Message: erro.Error()})
+		os.Stderr.WriteString(string(json) + "\n")
 		os.Exit(1)
 	}
-	return &LoggerSQS{queue: queue, ttype: ttype, location: location}
+	return &LoggerImpl{}
 }
