@@ -62,12 +62,7 @@ func (l *LoggerImpl) LogIf(canlog bool, level Level, message func() string, acti
 	}
 }
 
-//NewLogger cria um novo objeto Logger que irá logar numa fila AWS SQS.
-func NewLogger(queue Queue, erro error, ttype string, location string) Logger {
-	if erro != nil {
-		json, _ := json.Marshal(&log{Timestamp: time.Now().Format("2006-01-02T15:04:05.000000Z"), Level: fmt.Sprint(FATAL), Message: erro.Error()})
-		os.Stderr.WriteString(string(json) + "\n")
-		os.Exit(1)
-	}
+//NewLogger cria um novo objeto Logger que irá logar no console.
+func NewLogger() Logger {
 	return &LoggerImpl{}
 }
