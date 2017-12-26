@@ -36,6 +36,7 @@ type LoggerImpl struct {
 //Logger descreve uma interface de log de ero, que loga em diversas fontes, conforme suas implementações
 type Logger interface {
 	LogIf(canlog bool, level Level, message func() string, action func(*string))
+	Log(level Level, message string)
 }
 
 //LogIf realiza o log da informações no locais pertinentes, no Console e na Queue
@@ -60,6 +61,11 @@ func (l *LoggerImpl) LogIf(canlog bool, level Level, message func() string, acti
 			action(message)
 		}
 	}
+}
+
+//Log realiza um log simples, informando apenas o level e a mensagem
+func (l *LoggerImpl) Log(level Level, message string) {
+	l.LogIf(true, level, func() string { return message }, nil)
 }
 
 //NewLogger cria um novo objeto Logger que irá logar no console.
