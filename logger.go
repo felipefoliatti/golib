@@ -84,7 +84,7 @@ func (l *LoggerImpl) Log(level Level, message string) {
 	l.log(true, level, func() string { return message }, nil, nil)
 }
 
-//Log2 realiza um log simples, informando apenas o level, mensagem e opcional
+//LogOpt realiza um log simples, informando apenas o level, mensagem e opcional
 func (l *LoggerImpl) LogOpt(level Level, message string, optional string) {
 	l.log(true, level, func() string { return message }, func() string { return optional }, nil)
 }
