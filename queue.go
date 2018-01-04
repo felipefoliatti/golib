@@ -113,7 +113,7 @@ func NewQueue(name *string, sufix *string, endpoint *string, accessKey *string, 
 // Caso haja algum erro, então um objeto error é retornado
 func (q *sqsQueue) Send(content *string) (*string, error) {
 
-	guid := uuid.NewV4()
+	guid, err := uuid.NewV4()
 	req, err := q.svc.SendMessage(&sqs.SendMessageInput{
 		MessageBody:            content,
 		QueueUrl:               q.url,
