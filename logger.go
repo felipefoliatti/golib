@@ -23,11 +23,17 @@ const (
 	FATAL = "FATAL"
 )
 
+//Data indica um tipo de struct que possui campos opcionais
+type Data struct {
+	Message  string    `json:"message,omitempty"`
+	Location []float64 `json:"location,omitempty"`
+	Optional string    `json:"optional,omitempty"`
+}
+
 type log struct {
 	Timestamp string `json:"timestamp"`
 	Level     string `json:"level"`
-	Message   string `json:"message"`
-	Optional  string `json:"optional,omitempty"`
+	Data
 }
 
 //LoggerImpl define uma implementação de Logger para logar em console
@@ -36,9 +42,8 @@ type LoggerImpl struct {
 
 //Logger descreve uma interface de log de ero, que loga em diversas fontes, conforme suas implementações
 type Logger interface {
-	LogIf(canlog bool, level Level, message func() string, action func(*string))
-	Log(level Level, message string)
-	LogOpt(level Level, message string, optional string)
+	LogIf(canlog bool, level Level, data func() Data, action func(*string))
+	Log(level Level, data Data)
 }
 
 //LogIf realiza o log da informações no locais pertinentes, no Console e na Queue
@@ -47,24 +52,22 @@ type Logger interface {
 //Caso contrário, será executado a função de log.
 //O caso de info, caso não seja nil, não será adicionado mensagens anteriores à mensagem
 //Por fim, será executado a action, caso não seja nil
-func (l *LoggerImpl) LogIf(canlog bool, level Level, message func() string, action func(*string)) {
-	l.log(canlog, level, message, nil, action)
+func (l *LoggerImpl) LogIf(canlog bool, level Level, data func() Data, action func(*string)) {
+	l.log(canlog, level, data, action)
 }
 
-func (l *LoggerImpl) log(canlog bool, level Level, message func() string, optional func() string, action func(*string)) {
+func (l *LoggerImpl) log(canlog bool, level Level, data func() Data, action func(*string)) {
 	if canlog {
 
-		var m string
-		var o string
+		var d Data
 
-		if message != nil {
-			m = message()
-		}
-		if optional != nil {
-			o = optional()
+		if data != nil {
+			d = data()
+		} else {
+			d = Data{}
 		}
 
-		json, _ := json.Marshal(&log{Timestamp: time.Now().Format("2006-01-02T15:04:05.000000Z"), Level: fmt.Sprint(level), Message: m, Optional: o})
+		json, _ := json.Marshal(&log{Timestamp: time.Now().Format("2006-01-02T15:04:05.000000Z"), Level: fmt.Sprint(level), Data: d})
 		message := aws.String(string(json))
 
 		if level == ERROR || level == FATAL {
@@ -80,13 +83,13 @@ func (l *LoggerImpl) log(canlog bool, level Level, message func() string, option
 }
 
 //Log realiza um log simples, informando apenas o level e a mensagem
-func (l *LoggerImpl) Log(level Level, message string) {
-	l.log(true, level, func() string { return message }, nil, nil)
+func (l *LoggerImpl) Log(level Level, data Data) {
+	l.log(true, level, func() Data { return data }, nil)
 }
 
 //LogOpt realiza um log simples, informando apenas o level, mensagem e opcional
-func (l *LoggerImpl) LogOpt(level Level, message string, optional string) {
-	l.log(true, level, func() string { return message }, func() string { return optional }, nil)
+func (l *LoggerImpl) LogOpt(level Level, data Data) {
+	l.log(true, level, func() Data { return data }, nil)
 }
 
 //NewLogger cria um novo objeto Logger que irá logar no console.
