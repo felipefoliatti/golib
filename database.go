@@ -58,7 +58,7 @@ func (m *mySqlDatabase) Run(statements ...Statement) error {
 
 	for _, statement := range statements {
 		//interpolateParams=true
-		_, err = db.Exec(statement.Statement, statement.Args...)
+		_, err = tx.Exec(statement.Statement, statement.Args...)
 		if err != nil {
 			tx.Rollback()
 			return err
