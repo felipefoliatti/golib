@@ -71,7 +71,7 @@ func (l *LoggerImpl) log(canlog bool, level Level, data func() interface{}, acti
 		m := make(map[string]interface{})
 
 		if data != nil {
-			record, _ := json.Marshal(data)
+			record, _ := json.Marshal(data())
 			json.Unmarshal(record, &m)
 		}
 
