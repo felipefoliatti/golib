@@ -44,30 +44,41 @@ type LoggerImpl struct {
 type Logger interface {
 	LogIf(canlog bool, level Level, data func() Data, action func(*string))
 	Log(level Level, data Data)
+
+	LogAIf(canlog bool, level Level, data func() interface{}, action func(*string))
+	LogA(level Level, data interface{})
 }
 
-//LogIf realiza o log da informações no locais pertinentes, no Console e na Queue
-//Caso verbose seja false, nada será printado no console, caso seja true, os erros também serão mandados para o console
-//Caso o parâmetro canlog seja false, nada será feito.
-//Caso contrário, será executado a função de log.
-//O caso de info, caso não seja nil, não será adicionado mensagens anteriores à mensagem
-//Por fim, será executado a action, caso não seja nil
 func (l *LoggerImpl) LogIf(canlog bool, level Level, data func() Data, action func(*string)) {
+	l.log(canlog, level, func() interface{} { return data }, action)
+}
+
+func (l *LoggerImpl) Log(level Level, data Data) {
+	l.log(true, level, func() interface{} { return data }, nil)
+}
+
+func (l *LoggerImpl) LogAIf(canlog bool, level Level, data func() interface{}, action func(*string)) {
 	l.log(canlog, level, data, action)
 }
 
-func (l *LoggerImpl) log(canlog bool, level Level, data func() Data, action func(*string)) {
+func (l *LoggerImpl) LogA(level Level, data interface{}) {
+	l.log(true, level, func() interface{} { return data }, nil)
+}
+
+func (l *LoggerImpl) log(canlog bool, level Level, data func() interface{}, action func(*string)) {
 	if canlog {
 
-		var d Data
+		m := make(map[string]interface{})
 
 		if data != nil {
-			d = data()
-		} else {
-			d = Data{}
+			record, _ := json.Marshal(data)
+			json.Unmarshal(record, &m)
 		}
 
-		json, _ := json.Marshal(&log{Timestamp: time.Now().Format("2006-01-02T15:04:05.000000Z"), Level: fmt.Sprint(level), Data: d})
+		m["timestamp"] = time.Now().Format("2006-01-02T15:04:05.000000Z")
+		m["level"] = fmt.Sprint(level)
+
+		json, _ := json.Marshal(m)
 		message := aws.String(string(json))
 
 		if level == ERROR || level == FATAL {
@@ -80,16 +91,6 @@ func (l *LoggerImpl) log(canlog bool, level Level, data func() Data, action func
 			action(message)
 		}
 	}
-}
-
-//Log realiza um log simples, informando apenas o level e a mensagem
-func (l *LoggerImpl) Log(level Level, data Data) {
-	l.log(true, level, func() Data { return data }, nil)
-}
-
-//LogOpt realiza um log simples, informando apenas o level, mensagem e opcional
-func (l *LoggerImpl) LogOpt(level Level, data Data) {
-	l.log(true, level, func() Data { return data }, nil)
 }
 
 //NewLogger cria um novo objeto Logger que irá logar no console.
