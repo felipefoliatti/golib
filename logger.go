@@ -50,7 +50,7 @@ type Logger interface {
 }
 
 func (l *LoggerImpl) LogIf(canlog bool, level Level, data func() Data, action func(*string)) {
-	l.log(canlog, level, func() interface{} { return data }, action)
+	l.log(canlog, level, func() interface{} { return data() }, action)
 }
 
 func (l *LoggerImpl) Log(level Level, data Data) {
@@ -71,7 +71,8 @@ func (l *LoggerImpl) log(canlog bool, level Level, data func() interface{}, acti
 		m := make(map[string]interface{})
 
 		if data != nil {
-			record, _ := json.Marshal(data())
+			d := data()
+			record, _ := json.Marshal(d)
 			json.Unmarshal(record, &m)
 		}
 
