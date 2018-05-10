@@ -55,6 +55,9 @@ func (m *mySqlDatabase) Run(statements ...Statement) error {
 	}
 
 	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
 
 	for _, statement := range statements {
 		//interpolateParams=true
