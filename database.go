@@ -1,8 +1,6 @@
 package golib
 
 import (
-	"database/sql"
-
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 )
@@ -30,6 +28,7 @@ type mySqlDatabase struct {
 	url        *string
 	database   *string
 	timezone   string
+	db         *sqlx.DB
 }
 
 // NewDatabase cria uma instância concreta do MySqlDatabase
@@ -49,12 +48,18 @@ func NewDatabase(drivername *string, database *string, url *string) Database {
 // Se houver um erro, um objeto error é retornado
 func (m *mySqlDatabase) Run(statements ...Statement) error {
 
-	db, err := sql.Open(*m.drivername, *m.url+*m.database /*+"?interpolateParams=true"*/)
+	var err error
+
+	if m.db == nil {
+		m.db, err = sqlx.Open(*m.drivername, *m.url+*m.database /*+"?interpolateParams=true"*/)
+		m.db.SetMaxOpenConns(5)
+	}
+
 	if err != nil {
 		return err
 	}
 
-	tx, err := db.Begin()
+	tx, err := m.db.Begin()
 	if err != nil {
 		return err
 	}
@@ -62,15 +67,17 @@ func (m *mySqlDatabase) Run(statements ...Statement) error {
 	for _, statement := range statements {
 		//interpolateParams=true
 		_, err = tx.Exec(statement.Statement, statement.Args...)
+
 		if err != nil {
 			tx.Rollback()
 			return err
 		}
+
 	}
 
 	err = tx.Commit()
 
-	defer db.Close()
+	//defer db.Close()
 	return err
 }
 
@@ -78,13 +85,18 @@ func (m *mySqlDatabase) Run(statements ...Statement) error {
 // Se houver um erro, um objeto error é retornado
 func (m *mySqlDatabase) Query(dest interface{}, statements Statement) error {
 
-	db, err := sqlx.Open(*m.drivername, *m.url+*m.database+"?parseTime=true" /*+"?interpolateParams=true"*/)
+	var err error
+	if m.db == nil {
+		m.db, err = sqlx.Open(*m.drivername, *m.url+*m.database+"?parseTime=true" /*+"?interpolateParams=true"*/)
+		m.db.SetMaxOpenConns(5)
+	}
+
 	if err != nil {
 		return err
 	}
 
-	err = db.Select(dest, statements.Statement, statements.Args...)
+	err = m.db.Select(dest, statements.Statement, statements.Args...)
 
-	defer db.Close()
+	//defer db.Close()
 	return err
 }
