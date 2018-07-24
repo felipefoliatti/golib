@@ -65,7 +65,7 @@ func (q *amqQueue) connect() error {
 
 	if strings.Contains(*q.host, "https") {
 
-		dial, err := tls.Dial("tcp", "b-5a8bcff7-e7c7-464b-8f72-9cda01fbac87-1.mq.us-east-2.amazonaws.com:61614", &tls.Config{})
+		dial, err := tls.Dial("tcp", strings.Replace(*q.host, "https://", "", -1)+":"+*q.port, &tls.Config{})
 		//If any error, stops
 		if err != nil {
 			return err
@@ -79,7 +79,7 @@ func (q *amqQueue) connect() error {
 
 	} else {
 
-		dial, err := net.Dial("tcp", "b-5a8bcff7-e7c7-464b-8f72-9cda01fbac87-1.mq.us-east-2.amazonaws.com:61614")
+		dial, err := net.Dial("tcp", strings.Replace(*q.host, "http://", "", -1)+":"+*q.port)
 		//If any error, stops
 		if err != nil {
 			return err
