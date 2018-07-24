@@ -47,6 +47,7 @@ type Logger interface {
 
 	LogAIf(canlog bool, level Level, data func() interface{}, action func(*string))
 	LogA(level Level, data interface{})
+	LogAIf2(canlog bool, level Level, data interface{})
 }
 
 func (l *LoggerImpl) LogIf(canlog bool, level Level, data func() Data, action func(*string)) {
@@ -63,6 +64,10 @@ func (l *LoggerImpl) LogAIf(canlog bool, level Level, data func() interface{}, a
 
 func (l *LoggerImpl) LogA(level Level, data interface{}) {
 	l.log(true, level, func() interface{} { return data }, nil)
+}
+
+func (l *LoggerImpl) LogAIf2(canlog bool, level Level, data interface{}) {
+	l.log(canlog, level, func() interface{} { return data }, nil)
 }
 
 func (l *LoggerImpl) log(canlog bool, level Level, data func() interface{}, action func(*string)) {
