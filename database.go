@@ -18,7 +18,7 @@ type Statement struct {
 // Através desta interface, será possível executar instruções no banco de dados
 // Em caso de erro, um objeto error é retornado
 type Database interface {
-	Run(statement ...Statement) ([]*sql.Result, error)
+	Run(statement ...Statement) ([]sql.Result, error)
 	Query(dest interface{}, statement Statement) error
 	Transaction(fun func(db *sqlx.DB) error) error
 }
@@ -77,10 +77,10 @@ func (m *mySqlDatabase) Transaction(fun func(db *sqlx.DB) error) error {
 
 // Run realiza a execução de uma instrução SQL
 // Se houver um erro, um objeto error é retornado
-func (m *mySqlDatabase) Run(statements ...Statement) ([]*sql.Result, error) {
+func (m *mySqlDatabase) Run(statements ...Statement) ([]sql.Result, error) {
 
 	var err error
-	results := []*sql.Result{}
+	results := []sql.Result{}
 
 	if m.db == nil {
 		m.db, err = sqlx.Open(*m.drivername, *m.url+*m.database /*+"?interpolateParams=true"*/)
@@ -106,7 +106,7 @@ func (m *mySqlDatabase) Run(statements ...Statement) ([]*sql.Result, error) {
 			return nil, err
 		}
 
-		results = append(results, &result)
+		results = append(results, result)
 
 	}
 
