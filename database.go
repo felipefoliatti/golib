@@ -1,6 +1,8 @@
 package golib
 
 import (
+	"database/sql"
+
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 )
@@ -16,8 +18,9 @@ type Statement struct {
 // Através desta interface, será possível executar instruções no banco de dados
 // Em caso de erro, um objeto error é retornado
 type Database interface {
-	Run(statement ...Statement) error
+	Run(statement ...Statement) ([]*sql.Result, error)
 	Query(dest interface{}, statement Statement) error
+	Transaction(fun func(db *sqlx.DB) error) error
 }
 
 // MySqlDatabase é uma implementação concreta da interface Database para MySql
@@ -44,10 +47,7 @@ func NewDatabase(drivername *string, database *string, url *string) Database {
 	return my
 }
 
-// Run realiza a execução de uma instrução SQL
-// Se houver um erro, um objeto error é retornado
-func (m *mySqlDatabase) Run(statements ...Statement) error {
-
+func (m *mySqlDatabase) Transaction(fun func(db *sqlx.DB) error) error {
 	var err error
 
 	if m.db == nil {
@@ -64,21 +64,56 @@ func (m *mySqlDatabase) Run(statements ...Statement) error {
 		return err
 	}
 
+	err = fun(m.db)
+
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	err = tx.Commit()
+	return err
+}
+
+// Run realiza a execução de uma instrução SQL
+// Se houver um erro, um objeto error é retornado
+func (m *mySqlDatabase) Run(statements ...Statement) ([]*sql.Result, error) {
+
+	var err error
+	results := []*sql.Result{}
+
+	if m.db == nil {
+		m.db, err = sqlx.Open(*m.drivername, *m.url+*m.database /*+"?interpolateParams=true"*/)
+		m.db.SetMaxOpenConns(5)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err := m.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+
 	for _, statement := range statements {
 		//interpolateParams=true
-		_, err = tx.Exec(statement.Statement, statement.Args...)
+		var result sql.Result
+		result, err = tx.Exec(statement.Statement, statement.Args...)
 
 		if err != nil {
 			tx.Rollback()
-			return err
+			return nil, err
 		}
+
+		results = append(results, &result)
 
 	}
 
 	err = tx.Commit()
 
 	//defer db.Close()
-	return err
+	return results, err
 }
 
 // Query realiza a execução de uma consulta SQL
