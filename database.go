@@ -21,6 +21,7 @@ type Database interface {
 	Run(statement ...Statement) ([]sql.Result, error)
 	Query(dest interface{}, statement Statement) error
 	Transaction(fun func(db *sqlx.DB) error) error
+	Do(act func(db *sqlx.DB)) error
 }
 
 // MySqlDatabase é uma implementação concreta da interface Database para MySql
@@ -134,4 +135,21 @@ func (m *mySqlDatabase) Query(dest interface{}, statements Statement) error {
 
 	//defer db.Close()
 	return err
+}
+
+// Se houver um erro, um objeto error é retornado
+func (m *mySqlDatabase) Do(act func(db *sqlx.DB)) error {
+
+	var err error
+	if m.db == nil {
+		m.db, err = sqlx.Open(*m.drivername, *m.url+*m.database+"?parseTime=true" /*+"?interpolateParams=true"*/)
+		m.db.SetMaxOpenConns(5)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	act(m.db)
+	return nil
 }
