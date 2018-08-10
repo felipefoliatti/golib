@@ -29,7 +29,8 @@ type Message struct {
 type Queue interface {
 	Send(content *string) (*string, error)
 	Read() ([]*Message, error)
-	Delete(handle interface{}) error
+	Ack(handle interface{}) error
+	NAck(handle interface{}) error
 }
 
 // AmqQueue define uma implementação de uma Queue para a ActiveMQ
@@ -155,7 +156,11 @@ func (q *amqQueue) Read() ([]*Message, error) {
 }
 
 // Delete/Ack the message
-func (q *amqQueue) Delete(handle interface{}) error {
+func (q *amqQueue) Ack(handle interface{}) error {
 	msg := handle.(*stomp.Message)
 	return q.conn.Ack(msg)
+}
+func (q *amqQueue) NAck(handle interface{}) error {
+	msg := handle.(*stomp.Message)
+	return q.conn.Nack(msg)
 }
