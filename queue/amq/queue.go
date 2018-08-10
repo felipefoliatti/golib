@@ -72,7 +72,7 @@ func (q *amqQueue) connect() error {
 			return err
 		}
 
-		q.conn, err = stomp.Connect(dial, stomp.ConnOpt.Login(*q.user, *q.password), stomp.ConnOpt.HeartBeatError(360*time.Second))
+		q.conn, err = stomp.Connect(dial, stomp.ConnOpt.Login(*q.user, *q.password), stomp.ConnOpt.HeartBeatError(60*time.Second), stomp.ConnOpt.WriteChannelCapacity(20000))
 		//If any error, stops
 		if err != nil {
 			return err
@@ -86,7 +86,7 @@ func (q *amqQueue) connect() error {
 			return err
 		}
 
-		q.conn, err = stomp.Connect(dial, stomp.ConnOpt.Login(*q.user, *q.password), stomp.ConnOpt.HeartBeatError(360*time.Second))
+		q.conn, err = stomp.Connect(dial, stomp.ConnOpt.Login(*q.user, *q.password), stomp.ConnOpt.HeartBeatError(60*time.Second), stomp.ConnOpt.WriteChannelCapacity(20000))
 		//If any error, stops
 		if err != nil {
 			return err
