@@ -93,13 +93,6 @@ func (q *amqQueue) connect() error {
 		}
 	}
 
-	//Create the subscription
-	q.subscription, err = q.conn.Subscribe(*q.destination, stomp.AckClient)
-	//If any error, stops
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -128,6 +121,16 @@ func (q *amqQueue) Read() ([]*Message, error) {
 
 		if q.conn == nil {
 			q.connect()
+		}
+
+		if q.subscription == nil {
+			var e error
+			//Create the subscription
+			q.subscription, e = q.conn.Subscribe(*q.destination, stomp.AckClient)
+			//If any error, stops
+			if e != nil {
+				return e
+			}
 		}
 
 		msg = <-q.subscription.C
