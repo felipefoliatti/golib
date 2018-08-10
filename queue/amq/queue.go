@@ -62,7 +62,6 @@ func NewQueue(destination *string, host *string, port *string, user *string, pas
 }
 
 func (q *amqQueue) connect() error {
-	var err error
 
 	if strings.Contains(*q.host, "https") {
 
