@@ -3,6 +3,7 @@ package amq
 import (
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"net"
 	"strings"
 	"time"
@@ -98,11 +99,31 @@ func (q *amqQueue) connect() error {
 // Send is the implementation that is responsible to send message to queue
 // In the return, a GUID is returned, the GUID is a Correlation-ID
 // If any error happen, the error object is returned
+// Send is the implementation that is responsible to send message to queue
+// In the return, a GUID is returned, the GUID is a Correlation-ID
+// If any error happen, the error object is returned
 func (q *amqQueue) Send(content *string) (*string, error) {
 
 	guid, err := uuid.NewV4()
-	err = q.conn.Send(*q.destination, "application/json", []byte(*content), stomp.SendOpt.Receipt, stomp.SendOpt.Header("persistent", "true"), stomp.SendOpt.Header("correlation-id", guid.String()))
+	err = backoff.Retry(func() error {
 
+		if q.conn == nil {
+			q.connect()
+		}
+
+		err = q.conn.Send(*q.destination, "application/json", []byte(*content), stomp.SendOpt.Receipt, stomp.SendOpt.Header("persistent", "true"), stomp.SendOpt.Header("correlation-id", guid.String()))
+
+		if err != nil {
+			q.conn.Disconnect()
+			q.conn = nil
+			return errors.New(fmt.Sprint("failed to listen to topic: retrying to open a connection: ", err.Error()))
+		}
+
+		return nil
+
+	}, backoff.WithMaxRetries(backoff.NewExponentialBackOff(), 3))
+
+	//if any error, don't return the uuid
 	if err != nil {
 		return nil, err
 	}
