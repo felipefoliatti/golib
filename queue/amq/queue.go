@@ -156,8 +156,14 @@ func (q *amqQueue) Read() ([]*Message, error) {
 		msg = <-q.subscription.C
 
 		if msg == nil {
+			if q.subscription != nil {
+				q.subscription.Unsubscribe()
+			}
+
 			q.conn.Disconnect()
 			q.conn = nil
+			q.subscription = nil
+
 			return errors.New("failed to listen to topic: retrying to open a connection")
 		}
 
