@@ -21,7 +21,7 @@ type Database interface {
 	Run(statement ...Statement) ([]sql.Result, error)
 	Query(dest interface{}, statement Statement) error
 	Transaction(fun func(db *sqlx.DB) error) error
-	Do(act func(db *sqlx.DB)) error
+	Do(act func(db *sqlx.DB) error) error
 }
 
 // MySqlDatabase é uma implementação concreta da interface Database para MySql
