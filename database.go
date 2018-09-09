@@ -138,7 +138,7 @@ func (m *mySqlDatabase) Query(dest interface{}, statements Statement) error {
 }
 
 // Se houver um erro, um objeto error é retornado
-func (m *mySqlDatabase) Do(act func(db *sqlx.DB)) error {
+func (m *mySqlDatabase) Do(act func(db *sqlx.DB) error) error {
 
 	var err error
 	if m.db == nil {
@@ -150,6 +150,5 @@ func (m *mySqlDatabase) Do(act func(db *sqlx.DB)) error {
 		return err
 	}
 
-	act(m.db)
-	return nil
+	return act(m.db)
 }
