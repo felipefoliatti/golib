@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	uuid "github.com/satori/go.uuid"
 )
 
 //Level indica o tipo de error que o logger irá lançar
@@ -83,6 +84,11 @@ func (l *LoggerImpl) log(canlog bool, level Level, data func() interface{}, acti
 
 		m["timestamp"] = time.Now().Format("2006-01-02T15:04:05.000000Z")
 		m["level"] = fmt.Sprint(level)
+
+		//if no id is provided, adds one
+		if _, ok := m["id"]; !ok {
+			m["id"] = uuid.Must(uuid.NewV4())
+		}
 
 		json, _ := json.Marshal(m)
 		message := aws.String(string(json))
