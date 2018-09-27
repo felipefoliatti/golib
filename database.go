@@ -2,6 +2,7 @@ package golib
 
 import (
 	"database/sql"
+	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
@@ -19,6 +20,7 @@ type Statement struct {
 // Em caso de erro, um objeto error é retornado
 type Database interface {
 	Run(statement ...Statement) ([]sql.Result, error)
+	RunMisc(statements ...Statement) ([]interface{}, error)
 	Query(dest interface{}, statement Statement) error
 	Transaction(fun func(db *sqlx.DB) error) error
 	Do(act func(db *sqlx.DB) error) error
@@ -109,6 +111,59 @@ func (m *mySqlDatabase) Run(statements ...Statement) ([]sql.Result, error) {
 
 		results = append(results, result)
 
+	}
+
+	err = tx.Commit()
+
+	//defer db.Close()
+	return results, err
+}
+
+// Runs commands or queries inside a transaction. If the Statement contains a SELECT, will return sql.Rows, otherwise the object will be sql.Result
+// If any error, the object is returned
+func (m *mySqlDatabase) RunMisc(statements ...Statement) ([]interface{}, error) {
+
+	var err error
+	results := []interface{}{}
+
+	if m.db == nil {
+		m.db, err = sqlx.Open(*m.drivername, *m.url+*m.database /*+"?interpolateParams=true"*/)
+		m.db.SetMaxOpenConns(5)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err := m.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, statement := range statements {
+
+		if strings.HasPrefix(strings.ToUpper(strings.TrimSpace(statement.Statement)), "SELECT") {
+			//interpolateParams=true
+			var result sql.Result
+			result, err = tx.Exec(statement.Statement, statement.Args...)
+
+			if err != nil {
+				tx.Rollback()
+				return nil, err
+			}
+
+			results = append(results, result)
+		} else {
+			var result *sql.Rows
+			result, err = tx.Query(statement.Statement, statement.Args...)
+
+			if err != nil {
+				tx.Rollback()
+				return nil, err
+			}
+
+			results = append(results, result)
+		}
 	}
 
 	err = tx.Commit()
