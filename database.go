@@ -143,9 +143,8 @@ func (m *mySqlDatabase) RunMisc(statements ...Statement) ([]interface{}, error) 
 	for _, statement := range statements {
 
 		if strings.HasPrefix(strings.ToUpper(strings.TrimSpace(statement.Statement)), "SELECT") {
-			//interpolateParams=true
-			var result sql.Result
-			result, err = tx.Exec(statement.Statement, statement.Args...)
+			var result *sql.Rows
+			result, err = tx.Query(statement.Statement, statement.Args...)
 
 			if err != nil {
 				tx.Rollback()
@@ -154,8 +153,9 @@ func (m *mySqlDatabase) RunMisc(statements ...Statement) ([]interface{}, error) 
 
 			results = append(results, result)
 		} else {
-			var result *sql.Rows
-			result, err = tx.Query(statement.Statement, statement.Args...)
+			//interpolateParams=true
+			var result sql.Result
+			result, err = tx.Exec(statement.Statement, statement.Args...)
 
 			if err != nil {
 				tx.Rollback()
