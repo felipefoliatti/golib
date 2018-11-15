@@ -22,7 +22,7 @@ type Database interface {
 	Run(statement ...Statement) ([]sql.Result, error)
 	RunMisc(statements ...Statement) ([]interface{}, error)
 	Query(dest interface{}, statement Statement) error
-	Transaction(fun func(db *sqlx.DB) error) error
+	Transaction(fun func(tx *sqlx.Tx) error) error
 	Do(act func(db *sqlx.DB) error) error
 }
 
@@ -50,7 +50,7 @@ func NewDatabase(drivername *string, database *string, url *string) Database {
 	return my
 }
 
-func (m *mySqlDatabase) Transaction(fun func(db *sqlx.DB) error) error {
+func (m *mySqlDatabase) Transaction(fun func(tx *sqlx.Tx) error) error {
 	var err error
 
 	if m.db == nil {
@@ -62,12 +62,12 @@ func (m *mySqlDatabase) Transaction(fun func(db *sqlx.DB) error) error {
 		return err
 	}
 
-	tx, err := m.db.Begin()
+	tx, err := m.db.Beginx()
 	if err != nil {
 		return err
 	}
 
-	err = fun(m.db)
+	err = fun(tx)
 
 	if err != nil {
 		tx.Rollback()
