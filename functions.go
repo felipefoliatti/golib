@@ -1,6 +1,12 @@
 package golib
 
-import "strings"
+import (
+	"strings"
+	"unicode"
+
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
+)
 
 //NewLogger cria um novo objeto Logger que irá logar no console.
 func TryError(err error) string {
@@ -19,4 +25,14 @@ func FilterNewLines(s string) string {
 			return r
 		}
 	}, s)
+}
+
+func RemoveAccents(s string) string {
+	isMn := func(r rune) bool {
+		return unicode.Is(unicode.Mn, r) // Mn: nonspacing marks
+	}
+
+	t := transform.Chain(norm.NFD, transform.RemoveFunc(isMn), norm.NFC)
+	result, _, _ := transform.String(t, s)
+	return result
 }
