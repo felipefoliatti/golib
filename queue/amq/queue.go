@@ -2,12 +2,11 @@ package amq
 
 import (
 	"crypto/tls"
-	"errors"
-	"fmt"
 	"net"
 	"strings"
 	"time"
 
+	"github.com/go-errors/errors"
 	"github.com/cenkalti/backoff"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -28,10 +27,10 @@ type Message struct {
 // Uma queue que pode ter diversas implementações
 // Um tipo Queue poderá ser FIFO, onde há sua ordem garantida
 type Queue interface {
-	Send(content *string) (*string, error)
-	Read() ([]*Message, error)
-	Ack(handle interface{}) error
-	NAck(handle interface{}) error
+	Send(content *string) (*string, *errors.Error)
+	Read() ([]*Message, *errors.Error)
+	Ack(handle interface{}) *errors.Error
+	NAck(handle interface{}) *errors.Error
 }
 
 // AmqQueue define uma implementação de uma Queue para a ActiveMQ
@@ -49,7 +48,7 @@ type amqQueue struct {
 
 // NewQueue creates a new AmqQueue
 // If the Queue does not exists, it will be automatically created
-func NewQueue(destination *string, host *string, port *string, user *string, password *string) (Queue, error) {
+func NewQueue(destination *string, host *string, port *string, user *string, password *string) (Queue, *errors.Error) {
 	self := &amqQueue{}
 	self.destination = destination
 	self.host = host
@@ -62,17 +61,20 @@ func NewQueue(destination *string, host *string, port *string, user *string, pas
 	return self, err
 }
 
-func (q *amqQueue) connect() error {
-
+func (q *amqQueue) connect() *errors.Error {
+	var err *errors.Error
 	if strings.Contains(*q.host, "https") {
 
-		dial, err := tls.Dial("tcp", strings.Replace(*q.host, "https://", "", -1)+":"+*q.port, &tls.Config{})
+		dial, e := tls.Dial("tcp", strings.Replace(*q.host, "https://", "", -1)+":"+*q.port, &tls.Config{})
+		err = errors.WrapPrefix(e, "error opening the connection to queue via HTTPS", 0)
 		//If any error, stops
 		if err != nil {
 			return err
 		}
 
-		q.conn, err = stomp.Connect(dial, stomp.ConnOpt.Login(*q.user, *q.password), stomp.ConnOpt.HeartBeatError(60*time.Second), stomp.ConnOpt.WriteChannelCapacity(20000), stomp.ConnOpt.ReadChannelCapacity(20000))
+		q.conn, e = stomp.Connect(dial, stomp.ConnOpt.Login(*q.user, *q.password), stomp.ConnOpt.HeartBeatError(60*time.Second), stomp.ConnOpt.WriteChannelCapacity(20000), stomp.ConnOpt.ReadChannelCapacity(20000))
+		err = errors.WrapPrefix(e, "error connecting to queue via STOMP", 0)
+
 		//If any error, stops
 		if err != nil {
 			return err
@@ -80,13 +82,17 @@ func (q *amqQueue) connect() error {
 
 	} else {
 
-		dial, err := net.Dial("tcp", strings.Replace(*q.host, "http://", "", -1)+":"+*q.port)
+		dial, e := net.Dial("tcp", strings.Replace(*q.host, "http://", "", -1)+":"+*q.port)
+		err = errors.WrapPrefix(e, "error opening the connection to queue via HTTP", 0)
+
 		//If any error, stops
 		if err != nil {
 			return err
 		}
 
-		q.conn, err = stomp.Connect(dial, stomp.ConnOpt.Login(*q.user, *q.password), stomp.ConnOpt.HeartBeatError(60*time.Second), stomp.ConnOpt.WriteChannelCapacity(20000), stomp.ConnOpt.ReadChannelCapacity(20000))
+		q.conn, e = stomp.Connect(dial, stomp.ConnOpt.Login(*q.user, *q.password), stomp.ConnOpt.HeartBeatError(60*time.Second), stomp.ConnOpt.WriteChannelCapacity(20000), stomp.ConnOpt.ReadChannelCapacity(20000))
+		err = errors.WrapPrefix(e, "error opening the connection to queue", 0)
+
 		//If any error, stops
 		if err != nil {
 			return err
@@ -102,21 +108,25 @@ func (q *amqQueue) connect() error {
 // Send is the implementation that is responsible to send message to queue
 // In the return, a GUID is returned, the GUID is a Correlation-ID
 // If any error happen, the error object is returned
-func (q *amqQueue) Send(content *string) (*string, error) {
+func (q *amqQueue) Send(content *string) (*string, *errors.Error) {
 
-	guid, err := uuid.NewV4()
-	err = backoff.Retry(func() error {
+	var err *errors.Error
+	var e error
+	guid, e := uuid.NewV4()
+
+	e = backoff.Retry(func() error {
 
 		if q.conn == nil {
 			q.connect()
 		}
 
-		err = q.conn.Send(*q.destination, "application/json", []byte(*content), stomp.SendOpt.Receipt, stomp.SendOpt.Header("persistent", "true"), stomp.SendOpt.Header("correlation-id", guid.String()))
+		e = q.conn.Send(*q.destination, "application/json", []byte(*content), stomp.SendOpt.Receipt, stomp.SendOpt.Header("persistent", "true"), stomp.SendOpt.Header("correlation-id", guid.String()))
+		err = errors.WrapPrefix(e, "failed to listen to topic: retrying to open a connection", 0)
 
 		if err != nil {
 			q.conn.Disconnect()
 			q.conn = nil
-			return errors.New(fmt.Sprint("failed to listen to topic: retrying to open a connection: ", err.Error()))
+			return err
 		}
 
 		return nil
@@ -124,8 +134,8 @@ func (q *amqQueue) Send(content *string) (*string, error) {
 	}, backoff.WithMaxRetries(backoff.NewExponentialBackOff(), 3))
 
 	//if any error, don't return the uuid
-	if err != nil {
-		return nil, err
+	if e != nil {
+		return nil, e.(*errors.Error)
 	}
 
 	return aws.String(guid.String()), nil
@@ -134,22 +144,27 @@ func (q *amqQueue) Send(content *string) (*string, error) {
 // Read realize a blocking read, if there is any message, it returns,
 // The method can also return an empty list
 // If any error happen, the error object is returned
-func (q *amqQueue) Read() ([]*Message, error) {
+func (q *amqQueue) Read() ([]*Message, *errors.Error) {
 
+	var e error
+	var err *errors.Error
 	var msg *stomp.Message
-	err := backoff.Retry(func() error {
+
+	e = backoff.Retry(func() error {
 
 		if q.conn == nil {
 			q.connect()
 		}
 
 		if q.subscription == nil {
-			var e error
+
 			//Create the subscription
 			q.subscription, e = q.conn.Subscribe(*q.destination, stomp.AckClient)
+			err = errors.WrapPrefix(e, "error subscribing to queue", 0)
+
 			//If any error, stops
-			if e != nil {
-				return e
+			if err != nil {
+				return err
 			}
 		}
 
@@ -172,10 +187,11 @@ func (q *amqQueue) Read() ([]*Message, error) {
 	}, backoff.WithMaxRetries(backoff.NewExponentialBackOff(), 3))
 
 	if err != nil {
-		return nil, err
+		return nil, e.(*errors.Error)
 	}
+
 	if msg.Err != nil {
-		return nil, errors.New("failed to listen to topic: " + msg.Err.Error())
+		return nil, errors.WrapPrefix(msg.Err, "failed to listen to topic", 0)
 	}
 
 	messages := make([]*Message, 1)
@@ -185,11 +201,13 @@ func (q *amqQueue) Read() ([]*Message, error) {
 }
 
 // Delete/Ack the message
-func (q *amqQueue) Ack(handle interface{}) error {
+func (q *amqQueue) Ack(handle interface{}) *errors.Error {
 	msg := handle.(*stomp.Message)
-	return q.conn.Ack(msg)
+	e := q.conn.Ack(msg)
+	return errors.WrapPrefix(e, "error ack'ing the message", 0)
 }
-func (q *amqQueue) NAck(handle interface{}) error {
+func (q *amqQueue) NAck(handle interface{}) *errors.Error {
 	msg := handle.(*stomp.Message)
-	return q.conn.Nack(msg)
+	e := q.conn.Nack(msg)
+	return errors.WrapPrefix(e, "error nack'ing the message", 0)
 }
