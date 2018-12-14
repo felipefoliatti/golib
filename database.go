@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"strings"
 
+	"github.com/go-errors/errors"
+
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 )
@@ -19,11 +21,11 @@ type Statement struct {
 // Através desta interface, será possível executar instruções no banco de dados
 // Em caso de erro, um objeto error é retornado
 type Database interface {
-	Run(statement ...Statement) ([]sql.Result, error)
-	RunMisc(statements ...Statement) ([]interface{}, error)
-	Query(dest interface{}, statement Statement) error
-	Transaction(fun func(tx *sqlx.Tx) error) error
-	Do(act func(db *sqlx.DB) error) error
+	Run(statement ...Statement) ([]sql.Result, *errors.Error)
+	RunMisc(statements ...Statement) ([]interface{}, *errors.Error)
+	Query(dest interface{}, statement Statement) *errors.Error
+	Transaction(fun func(tx *sqlx.Tx) *errors.Error) *errors.Error
+	Do(act func(db *sqlx.DB) *errors.Error) *errors.Error
 }
 
 // MySqlDatabase é uma implementação concreta da interface Database para MySql
@@ -50,19 +52,26 @@ func NewDatabase(drivername *string, database *string, url *string) Database {
 	return my
 }
 
-func (m *mySqlDatabase) Transaction(fun func(tx *sqlx.Tx) error) error {
-	var err error
+func (m *mySqlDatabase) Transaction(fun func(tx *sqlx.Tx) *errors.Error) *errors.Error {
+
+	var e error
+	var err *errors.Error
 
 	if m.db == nil {
-		m.db, err = sqlx.Open(*m.drivername, *m.url+*m.database /*+"?interpolateParams=true"*/)
-		m.db.SetMaxOpenConns(5)
+		m.db, e = sqlx.Open(*m.drivername, *m.url+*m.database /*+"?interpolateParams=true"*/)
+		err = errors.WrapPrefix(e, "error opening the database", 0)
+		if err == nil {
+			m.db.SetMaxOpenConns(5)
+		}
 	}
 
 	if err != nil {
 		return err
 	}
 
-	tx, err := m.db.Beginx()
+	tx, e := m.db.Beginx()
+	err = errors.WrapPrefix(e, "error beginning the transaction", 0)
+
 	if err != nil {
 		return err
 	}
@@ -74,27 +83,36 @@ func (m *mySqlDatabase) Transaction(fun func(tx *sqlx.Tx) error) error {
 		return err
 	}
 
-	err = tx.Commit()
+	e = tx.Commit()
+	err = errors.WrapPrefix(e, "error commiting the transaction", 0)
+
 	return err
 }
 
 // Run realiza a execução de uma instrução SQL
 // Se houver um erro, um objeto error é retornado
-func (m *mySqlDatabase) Run(statements ...Statement) ([]sql.Result, error) {
+func (m *mySqlDatabase) Run(statements ...Statement) ([]sql.Result, *errors.Error) {
 
-	var err error
+	var e error
+	var err *errors.Error
+
 	results := []sql.Result{}
 
 	if m.db == nil {
-		m.db, err = sqlx.Open(*m.drivername, *m.url+*m.database /*+"?interpolateParams=true"*/)
-		m.db.SetMaxOpenConns(5)
+		m.db, e = sqlx.Open(*m.drivername, *m.url+*m.database /*+"?interpolateParams=true"*/)
+		err = errors.WrapPrefix(e, "error opening the database", 0)
+		if err == nil {
+			m.db.SetMaxOpenConns(5)
+		}
 	}
 
 	if err != nil {
 		return nil, err
 	}
 
-	tx, err := m.db.Begin()
+	tx, e := m.db.Begin()
+	err = errors.WrapPrefix(e, "error beginning the transaction", 0)
+
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +120,8 @@ func (m *mySqlDatabase) Run(statements ...Statement) ([]sql.Result, error) {
 	for _, statement := range statements {
 		//interpolateParams=true
 		var result sql.Result
-		result, err = tx.Exec(statement.Statement, statement.Args...)
+		result, e = tx.Exec(statement.Statement, statement.Args...)
+		err = errors.WrapPrefix(e, "error executing the statement", 0)
 
 		if err != nil {
 			tx.Rollback()
@@ -113,7 +132,8 @@ func (m *mySqlDatabase) Run(statements ...Statement) ([]sql.Result, error) {
 
 	}
 
-	err = tx.Commit()
+	e = tx.Commit()
+	err = errors.WrapPrefix(e, "error commiting the transaction", 0)
 
 	//defer db.Close()
 	return results, err
@@ -121,21 +141,27 @@ func (m *mySqlDatabase) Run(statements ...Statement) ([]sql.Result, error) {
 
 // Runs commands or queries inside a transaction. If the Statement contains a SELECT, will return sql.Rows, otherwise the object will be sql.Result
 // If any error, the object is returned
-func (m *mySqlDatabase) RunMisc(statements ...Statement) ([]interface{}, error) {
+func (m *mySqlDatabase) RunMisc(statements ...Statement) ([]interface{}, *errors.Error) {
 
-	var err error
+	var e error
+	var err *errors.Error
 	results := []interface{}{}
 
 	if m.db == nil {
-		m.db, err = sqlx.Open(*m.drivername, *m.url+*m.database /*+"?interpolateParams=true"*/)
-		m.db.SetMaxOpenConns(5)
+		m.db, e = sqlx.Open(*m.drivername, *m.url+*m.database /*+"?interpolateParams=true"*/)
+		err = errors.WrapPrefix(e, "error opening the database", 0)
+		if err == nil {
+			m.db.SetMaxOpenConns(5)
+		}
 	}
 
 	if err != nil {
 		return nil, err
 	}
 
-	tx, err := m.db.Begin()
+	tx, e := m.db.Begin()
+	err = errors.WrapPrefix(e, "error beginning the transaction", 0)
+
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +170,8 @@ func (m *mySqlDatabase) RunMisc(statements ...Statement) ([]interface{}, error) 
 
 		if strings.HasPrefix(strings.ToUpper(strings.TrimSpace(statement.Statement)), "SELECT") {
 			var result *sql.Rows
-			result, err = tx.Query(statement.Statement, statement.Args...)
+			result, e = tx.Query(statement.Statement, statement.Args...)
+			err = errors.WrapPrefix(e, "error executing the query", 0)
 
 			if err != nil {
 				tx.Rollback()
@@ -155,7 +182,8 @@ func (m *mySqlDatabase) RunMisc(statements ...Statement) ([]interface{}, error) 
 		} else {
 			//interpolateParams=true
 			var result sql.Result
-			result, err = tx.Exec(statement.Statement, statement.Args...)
+			result, e = tx.Exec(statement.Statement, statement.Args...)
+			err = errors.WrapPrefix(e, "error executing the statement", 0)
 
 			if err != nil {
 				tx.Rollback()
@@ -166,7 +194,8 @@ func (m *mySqlDatabase) RunMisc(statements ...Statement) ([]interface{}, error) 
 		}
 	}
 
-	err = tx.Commit()
+	e = tx.Commit()
+	err = errors.WrapPrefix(e, "error commiting the transaction", 0)
 
 	//defer db.Close()
 	return results, err
@@ -174,31 +203,42 @@ func (m *mySqlDatabase) RunMisc(statements ...Statement) ([]interface{}, error) 
 
 // Query realiza a execução de uma consulta SQL
 // Se houver um erro, um objeto error é retornado
-func (m *mySqlDatabase) Query(dest interface{}, statements Statement) error {
+func (m *mySqlDatabase) Query(dest interface{}, statements Statement) *errors.Error {
 
-	var err error
+	var e error
+	var err *errors.Error
+
 	if m.db == nil {
-		m.db, err = sqlx.Open(*m.drivername, *m.url+*m.database+"?parseTime=true" /*+"?interpolateParams=true"*/)
-		m.db.SetMaxOpenConns(5)
+		m.db, e = sqlx.Open(*m.drivername, *m.url+*m.database+"?parseTime=true" /*+"?interpolateParams=true"*/)
+		err = errors.WrapPrefix(e, "error opening the database", 0)
+		if err == nil {
+			m.db.SetMaxOpenConns(5)
+		}
 	}
 
 	if err != nil {
 		return err
 	}
 
-	err = m.db.Select(dest, statements.Statement, statements.Args...)
+	e = m.db.Select(dest, statements.Statement, statements.Args...)
+	err = errors.WrapPrefix(e, "error executing the select", 0)
 
 	//defer db.Close()
 	return err
 }
 
 // Se houver um erro, um objeto error é retornado
-func (m *mySqlDatabase) Do(act func(db *sqlx.DB) error) error {
+func (m *mySqlDatabase) Do(act func(db *sqlx.DB) *errors.Error) *errors.Error {
 
-	var err error
+	var e error
+	var err *errors.Error
+
 	if m.db == nil {
-		m.db, err = sqlx.Open(*m.drivername, *m.url+*m.database+"?parseTime=true" /*+"?interpolateParams=true"*/)
-		m.db.SetMaxOpenConns(5)
+		m.db, e = sqlx.Open(*m.drivername, *m.url+*m.database+"?parseTime=true" /*+"?interpolateParams=true"*/)
+		err = errors.WrapPrefix(e, "error opening the database", 0)
+		if err == nil {
+			m.db.SetMaxOpenConns(5)
+		}
 	}
 
 	if err != nil {
