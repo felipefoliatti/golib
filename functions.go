@@ -4,12 +4,13 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/go-errors/errors"
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
 )
 
 //NewLogger cria um novo objeto Logger que irá logar no console.
-func TryError(err error) string {
+func TryError(err *errors.Error) string {
 	if err != nil {
 		return err.Error()
 	}
