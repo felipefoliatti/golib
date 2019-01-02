@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-errors/errors"
 	"github.com/cenkalti/backoff"
+	"github.com/felipefoliatti/errors"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/satori/go.uuid"
+	uuid "github.com/satori/go.uuid"
 
 	stomp "github.com/go-stomp/stomp"
 )

@@ -4,7 +4,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/go-errors/errors"
+	"github.com/felipefoliatti/errors"
 )
 
 //Sleeper define uma interface que avalia um erro, guarda seu estado e, conforme for, pára ou não o processo

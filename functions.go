@@ -4,7 +4,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/go-errors/errors"
+	"github.com/felipefoliatti/errors"
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
 )

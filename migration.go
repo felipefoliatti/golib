@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/go-errors/errors"
+	"github.com/felipefoliatti/errors"
 
 	migrate "github.com/rubenv/sql-migrate"
 )
