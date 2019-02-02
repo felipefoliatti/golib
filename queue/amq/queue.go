@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cenkalti/backoff"
+	"github.com/felipefoliatti/backoff"
 	"github.com/felipefoliatti/errors"
 
 	"github.com/aws/aws-sdk-go/aws"
