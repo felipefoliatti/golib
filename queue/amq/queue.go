@@ -254,6 +254,12 @@ func (q *amqQueue) Read() ([]*Message, *errors.Error) {
 	if nMsg != nil {
 		//If any new message from queue
 		messages[0] = &Message{Id: aws.String(nMsg.Header.Get("correlation-id")), Content: aws.String(string(nMsg.Body)), Handler: nMsg, times: 1, available: time.Now()}
+		//check to see if the message is inside the messages (if the broker resend it - if find, then remove it)
+		for i, m := range q.messages {
+			if m.Id == messages[0].Id {
+				q.messages = append(q.messages[:i], q.messages[i+1:]...)
+			}
+		}
 	} else if oMsg != nil {
 		//If any old message to try again
 		messages[0] = oMsg
