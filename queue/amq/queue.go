@@ -2,6 +2,7 @@ package amq
 
 import (
 	"crypto/tls"
+	"math"
 	"net"
 	"strings"
 	"time"
@@ -21,6 +22,9 @@ type Message struct {
 	Content *string
 	Handler interface{}
 	Id      *string
+
+	times     int
+	available time.Time
 }
 
 // Queue define um tipo que faz traca de mensagens
@@ -29,8 +33,9 @@ type Message struct {
 type Queue interface {
 	Send(content *string) (*string, *errors.Error)
 	Read() ([]*Message, *errors.Error)
-	Ack(handle interface{}) *errors.Error
-	NAck(handle interface{}) *errors.Error
+	Postpone(message *Message) *errors.Error
+	Ack(message *Message) *errors.Error
+	NAck(message *Message) *errors.Error
 }
 
 // AmqQueue define uma implementação de uma Queue para a ActiveMQ
@@ -44,6 +49,7 @@ type amqQueue struct {
 	destination  *string
 	conn         *stomp.Conn
 	subscription *stomp.Subscription
+	messages     []*Message
 }
 
 // NewQueue creates a new AmqQueue
@@ -55,6 +61,7 @@ func NewQueue(destination *string, host *string, port *string, user *string, pas
 	self.port = port
 	self.user = user
 	self.password = password
+	self.messages = []*Message{}
 
 	err := self.connect()
 
@@ -150,6 +157,21 @@ func (q *amqQueue) Read() ([]*Message, *errors.Error) {
 	var err *errors.Error
 	var msg *stomp.Message
 
+	//check if is any message to return
+	for i, m := range q.messages {
+
+		if m.available.Before(time.Now()) {
+			m.available = m.available.Add(time.Duration(math.Pow(2, float64(m.times))) * time.Second)
+			m.times++
+			//remove from list
+			q.messages = append(q.messages[:i], q.messages[i+1:]...)
+
+			//if found, return it first
+			return []*Message{m}, nil
+		}
+
+	}
+
 	e = backoff.Retry(func() error {
 
 		if q.conn == nil {
@@ -195,19 +217,24 @@ func (q *amqQueue) Read() ([]*Message, *errors.Error) {
 	}
 
 	messages := make([]*Message, 1)
-	messages[0] = &Message{Id: aws.String(msg.Header.Get("correlation-id")), Content: aws.String(string(msg.Body)), Handler: msg}
+	messages[0] = &Message{Id: aws.String(msg.Header.Get("correlation-id")), Content: aws.String(string(msg.Body)), Handler: msg, times: 1, available: time.Now()}
 
 	return messages, nil
 }
 
 // Delete/Ack the message
-func (q *amqQueue) Ack(handle interface{}) *errors.Error {
-	msg := handle.(*stomp.Message)
+func (q *amqQueue) Ack(handle *Message) *errors.Error {
+	msg := handle.Handler.(*stomp.Message)
 	e := q.conn.Ack(msg)
 	return errors.WrapPrefix(e, "error ack'ing the message", 0)
 }
-func (q *amqQueue) NAck(handle interface{}) *errors.Error {
-	msg := handle.(*stomp.Message)
+func (q *amqQueue) NAck(handle *Message) *errors.Error {
+	msg := handle.Handler.(*stomp.Message)
 	e := q.conn.Nack(msg)
 	return errors.WrapPrefix(e, "error nack'ing the message", 0)
+}
+
+func (q *amqQueue) Postpone(msg *Message) *errors.Error {
+	q.messages = append(q.messages, msg)
+	return nil
 }
