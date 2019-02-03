@@ -159,7 +159,7 @@ func (q *amqQueue) Read() ([]*Message, *errors.Error) {
 		if q.subscription == nil {
 
 			//Create the subscription
-			q.subscription, e = q.conn.Subscribe(*q.destination, stomp.AckClient)
+			q.subscription, e = q.conn.Subscribe(*q.destination, stomp.AckClientIndividual)
 			err = errors.WrapPrefix(e, "error subscribing to queue", 0)
 
 			//If any error, stops
