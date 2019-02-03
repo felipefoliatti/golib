@@ -50,6 +50,7 @@ type amqQueue struct {
 	conn         *stomp.Conn
 	subscription *stomp.Subscription
 	messages     []*Message
+	wait         time.Duration
 }
 
 // NewQueue creates a new AmqQueue
@@ -62,6 +63,7 @@ func NewQueue(destination *string, host *string, port *string, user *string, pas
 	self.user = user
 	self.password = password
 	self.messages = []*Message{}
+	self.wait = time.Hour //1 hour
 
 	err := self.connect()
 
@@ -155,30 +157,20 @@ func (q *amqQueue) Read() ([]*Message, *errors.Error) {
 
 	var e error
 	var err *errors.Error
-	var msg *stomp.Message
 
-	//check if is any message to return
-	for i, m := range q.messages {
-
-		if m.available.Before(time.Now()) {
-			m.available = m.available.Add(time.Duration(math.Pow(2, float64(m.times))) * time.Second)
-			m.times++
-			//remove from list
-			q.messages = append(q.messages[:i], q.messages[i+1:]...)
-
-			//if found, return it first
-			return []*Message{m}, nil
-		}
-
-	}
+	var nMsg *stomp.Message //new message read from queue
+	var oMsg *Message       //old message to process again
 
 	e = backoff.Retry(func() error {
 
 		if q.conn == nil {
-			q.connect()
+			e = q.connect()
+			if e != nil {
+				return e
+			}
 		}
 
-		if q.subscription == nil {
+		if q.subscription == nil && q.conn != nil {
 
 			//Create the subscription
 			q.subscription, e = q.conn.Subscribe(*q.destination, stomp.AckClientIndividual)
@@ -190,9 +182,49 @@ func (q *amqQueue) Read() ([]*Message, *errors.Error) {
 			}
 		}
 
-		msg = <-q.subscription.C
+	loop:
+		for {
+			select {
+			case nMsg = <-q.subscription.C:
+				break loop //stop the for loop
+			case <-time.After(q.wait):
+				//check if is any message to return
+				for i, m := range q.messages {
+					if m.available.Before(time.Now()) {
+						m.available = time.Now().Add(time.Duration(math.Pow(2, float64(m.times))) * time.Second)
+						m.times++
+						//remove from list
+						q.messages = append(q.messages[:i], q.messages[i+1:]...)
 
-		if msg == nil {
+						//if found, stop the inner loop (but does not break the inner most loop, cause we have to calculate the min time to wait first)
+						oMsg = m
+						break
+					}
+				}
+
+				//create a new temp array to check how much (at least must to wait)
+				temp := q.messages
+				if oMsg != nil {
+					temp = append(temp, oMsg)
+				}
+
+				//check the next
+				q.wait = time.Hour
+				for _, m := range temp {
+					since := time.Since(m.available)
+					if since < q.wait {
+						q.wait = since
+					}
+				}
+
+				//if the message was found inside the for loop
+				if oMsg != nil {
+					break loop
+				}
+			}
+		}
+
+		if oMsg == nil && nMsg == nil {
 			if q.subscription != nil {
 				q.subscription.Unsubscribe()
 			}
@@ -201,7 +233,7 @@ func (q *amqQueue) Read() ([]*Message, *errors.Error) {
 			q.conn = nil
 			q.subscription = nil
 
-			return errors.New("failed to listen to topic: retrying to open a connection")
+			return errors.New("failed to listen to queue: retrying to open a connection")
 		}
 
 		return nil
@@ -212,12 +244,20 @@ func (q *amqQueue) Read() ([]*Message, *errors.Error) {
 		return nil, e.(*errors.Error)
 	}
 
-	if msg.Err != nil {
-		return nil, errors.WrapPrefix(msg.Err, "failed to listen to topic", 0)
+	//if any error from message read from queue - if any message from queue
+	if nMsg != nil && nMsg.Err != nil {
+		return nil, errors.WrapPrefix(nMsg.Err, "failed to listen to queue", 0)
 	}
 
 	messages := make([]*Message, 1)
-	messages[0] = &Message{Id: aws.String(msg.Header.Get("correlation-id")), Content: aws.String(string(msg.Body)), Handler: msg, times: 1, available: time.Now()}
+
+	if nMsg != nil {
+		//If any new message from queue
+		messages[0] = &Message{Id: aws.String(nMsg.Header.Get("correlation-id")), Content: aws.String(string(nMsg.Body)), Handler: nMsg, times: 1, available: time.Now()}
+	} else if oMsg != nil {
+		//If any old message to try again
+		messages[0] = oMsg
+	}
 
 	return messages, nil
 }
@@ -236,5 +276,6 @@ func (q *amqQueue) NAck(handle *Message) *errors.Error {
 
 func (q *amqQueue) Postpone(msg *Message) *errors.Error {
 	q.messages = append(q.messages, msg)
+	q.wait = time.Second
 	return nil
 }
