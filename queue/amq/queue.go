@@ -192,7 +192,10 @@ func (q *amqQueue) Read() ([]*Message, *errors.Error) {
 				for i, m := range q.messages {
 					if m.available.Before(time.Now()) {
 						m.available = time.Now().Add(time.Duration(math.Pow(2, float64(m.times))) * time.Second)
+
 						m.times++
+						m.times = int(math.Max(float64(m.times), 12)) //at most, 1h
+
 						//remove from list
 						q.messages = append(q.messages[:i], q.messages[i+1:]...)
 
