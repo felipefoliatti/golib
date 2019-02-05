@@ -13,23 +13,22 @@ import (
 
 	"github.com/felipefoliatti/backoff"
 	"github.com/felipefoliatti/errors"
-	"github.com/felipefoliatti/golib"
 )
 
-func Post(logger golib.Logger, url string, obj interface{}, target interface{}, headers map[string]string) *errors.Error {
+func Post(logger Logger, url string, obj interface{}, target interface{}, headers map[string]string) *errors.Error {
 	return request("POST", logger, url, obj, target, headers)
 }
-func Put(logger golib.Logger, url string, obj interface{}, target interface{}, headers map[string]string) *errors.Error {
+func Put(logger Logger, url string, obj interface{}, target interface{}, headers map[string]string) *errors.Error {
 	return request("PUT", logger, url, obj, target, headers)
 }
-func Patch(logger golib.Logger, url string, obj interface{}, target interface{}, headers map[string]string) *errors.Error {
+func Patch(logger Logger, url string, obj interface{}, target interface{}, headers map[string]string) *errors.Error {
 	return request("PATCH", logger, url, obj, target, headers)
 }
-func Head(logger golib.Logger, url string, obj interface{}, target interface{}, headers map[string]string) *errors.Error {
+func Head(logger Logger, url string, obj interface{}, target interface{}, headers map[string]string) *errors.Error {
 	return request("HEAD", logger, url, obj, target, headers)
 }
 
-func request(method string, logger golib.Logger, url string, obj interface{}, target interface{}, headers map[string]string) *errors.Error {
+func request(method string, logger Logger, url string, obj interface{}, target interface{}, headers map[string]string) *errors.Error {
 	err := backoff.Retry(func() error {
 
 		var e error
@@ -111,7 +110,7 @@ func request(method string, logger golib.Logger, url string, obj interface{}, ta
 	return err.(*errors.Error)
 }
 
-func Get(logger golib.Logger, url string, target interface{}) *errors.Error {
+func Get(logger Logger, url string, target interface{}) *errors.Error {
 	err := backoff.Retry(func() error {
 
 		var e error
@@ -140,7 +139,7 @@ func Get(logger golib.Logger, url string, target interface{}) *errors.Error {
 					e = json.NewDecoder(resp.Body).Decode(&target)
 					err = errors.WrapPrefix(e, "error decoding json", 0)
 
-					//logger.LogAIf2(e != nil, golib.WARN, golib.Data{Message: "error parsing json from request ( " + url + "): " + golib.TryError(e)})
+					//logger.LogAIf2(e != nil, WARN, Data{Message: "error parsing json from request ( " + url + "): " + TryError(e)})
 
 					return err
 
