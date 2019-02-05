@@ -65,11 +65,25 @@ func (m *SqlMigrateMigrator) Migrate() *errors.Error {
 
 	migrations := &migrate.FileMigrationSource{Dir: "./migrations"}
 	n, e := migrate.Exec(db, *m.drivername, migrations, migrate.Up)
-	err = errors.WrapPrefix(e, "error migrating the database", 0)
+	err = errors.WrapPrefix(e, "error migrating UP the database", 0)
 
 	if err != nil {
+
+		//do a rollback
+		migrations := &migrate.FileMigrationSource{Dir: "./migrations"}
+		n, e := migrate.Exec(db, *m.drivername, migrations, migrate.Down)
+
+		fmt.Printf("Applied %d rollbacks!\n", n)
+		err2 := errors.WrapPrefix(e, "error migrating DOWN the database", 0)
+
+		if err2 != nil {
+			err = err2
+		}
+
 		return err
 	}
+
+	err = errors.WrapPrefix(err, "error migrating UP the database (rolledback successful)", 0)
 
 	fmt.Printf("Applied %d migrations!\n", n)
 	db.Close()
