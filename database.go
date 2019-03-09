@@ -58,7 +58,7 @@ func (m *mySqlDatabase) Transaction(fun func(tx *sqlx.Tx) *errors.Error) *errors
 	var err *errors.Error
 
 	if m.db == nil {
-		m.db, e = sqlx.Open(*m.drivername, *m.url+*m.database /*+"?interpolateParams=true"*/)
+		m.db, e = sqlx.Open(*m.drivername, *m.url+*m.database /*+"?interpolateParams=true"*/ +"?parseTime=true")
 		err = errors.WrapPrefix(e, "error opening the database", 0)
 		if err == nil {
 			m.db.SetMaxOpenConns(5)
