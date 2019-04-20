@@ -9,10 +9,18 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-//NewLogger cria um novo objeto Logger que irá logar no console.
+//TryError cria um novo objeto Logger que irá logar no console.
 func TryError(err *errors.Error) string {
 	if err != nil {
 		return err.Error()
+	}
+	return ""
+}
+
+//TryErrorStack cria um novo objeto Logger que irá logar no console.
+func TryErrorStack(err *errors.Error) string {
+	if err != nil {
+		return err.ErrorStack()
 	}
 	return ""
 }
