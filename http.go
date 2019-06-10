@@ -44,7 +44,7 @@ func request(method string, logger Logger, url string, obj interface{}, target i
 			enc.SetEscapeHTML(false)
 
 			e = enc.Encode(obj)
-			err = errors.WrapPrefix(e, "error marshalling", 0)
+			err = errors.WrapInner("error marshalling", e, 0)
 		}
 
 		if err != nil {
@@ -53,7 +53,7 @@ func request(method string, logger Logger, url string, obj interface{}, target i
 
 		j := []byte(string(b.Bytes()))
 		req, e = http.NewRequest(method, url, bytes.NewBuffer(j))
-		err = errors.WrapPrefix(e, "error creating the request", 0)
+		err = errors.WrapInner("error creating the request", e, 0)
 
 		if headers != nil {
 			for key, value := range headers {
@@ -66,7 +66,7 @@ func request(method string, logger Logger, url string, obj interface{}, target i
 
 			client := http.Client{Timeout: time.Duration(10 * time.Second)}
 			resp, e = client.Do(req)
-			err = errors.WrapPrefix(e, "error requesting", 0)
+			err = errors.WrapInner("error requesting", e, 0)
 
 			if err == nil {
 
@@ -78,7 +78,7 @@ func request(method string, logger Logger, url string, obj interface{}, target i
 					if target != nil {
 						//var response Response
 						e = json.NewDecoder(resp.Body).Decode(&target)
-						err = errors.WrapPrefix(e, "error decoding", 0)
+						err = errors.WrapInner("error decoding", e, 0)
 					}
 					return e
 
@@ -93,7 +93,7 @@ func request(method string, logger Logger, url string, obj interface{}, target i
 
 					body := strings.Replace(buf.String(), "\"", "'", -1)
 					e = fmt.Errorf("error in service - %s - code %d and body %s", url, resp.StatusCode, body)
-					err = errors.WrapPrefix(e, "error marshalling", 0)
+					err = errors.WrapInner("error marshalling", e, 0)
 
 					return err
 				}
@@ -120,14 +120,14 @@ func Get(logger Logger, url string, target interface{}) *errors.Error {
 		var req *http.Request
 
 		req, e = http.NewRequest("GET", url, nil)
-		err = errors.WrapPrefix(e, "error creating the request", 0)
+		err = errors.WrapInner("error creating the request", e, 0)
 
 		if err == nil {
 			req.Header.Set("Content-Type", "application/json")
 
 			client := &http.Client{Timeout: time.Second * 10, Transport: &http.Transport{Dial: (&net.Dialer{Timeout: 5 * time.Second}).Dial, TLSHandshakeTimeout: 5 * time.Second}}
 			resp, e = client.Do(req)
-			err = errors.WrapPrefix(e, "error requesting url", 0)
+			err = errors.WrapInner("error requesting url", e, 0)
 
 			if err == nil {
 
@@ -137,7 +137,7 @@ func Get(logger Logger, url string, target interface{}) *errors.Error {
 
 					//var response Response
 					e = json.NewDecoder(resp.Body).Decode(&target)
-					err = errors.WrapPrefix(e, "error decoding json", 0)
+					err = errors.WrapInner("error decoding json", e, 0)
 
 					//logger.LogAIf2(e != nil, WARN, Data{Message: "error parsing json from request ( " + url + "): " + TryError(e)})
 
@@ -150,7 +150,7 @@ func Get(logger Logger, url string, target interface{}) *errors.Error {
 					if e == nil {
 						err = errors.Errorf("error requesting url - body:" + string(body))
 					} else {
-						err = errors.WrapPrefix(e, "error requesting url - not possible to parse the body", 0)
+						err = errors.WrapInner("error requesting url - not possible to parse the body", e, 0)
 					}
 
 					return err

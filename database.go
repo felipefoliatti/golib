@@ -59,7 +59,7 @@ func (m *mySqlDatabase) Transaction(fun func(tx *sqlx.Tx) *errors.Error) *errors
 
 	if m.db == nil {
 		m.db, e = sqlx.Open(*m.drivername, *m.url+*m.database /*+"?interpolateParams=true"*/ +"?parseTime=true")
-		err = errors.WrapPrefix(e, "error opening the database", 0)
+		err = errors.WrapInner("error opening the database", e, 0)
 		if err == nil {
 			m.db.SetMaxOpenConns(5)
 		}
@@ -70,7 +70,7 @@ func (m *mySqlDatabase) Transaction(fun func(tx *sqlx.Tx) *errors.Error) *errors
 	}
 
 	tx, e := m.db.Beginx()
-	err = errors.WrapPrefix(e, "error beginning the transaction", 0)
+	err = errors.WrapInner("error beginning the transaction", e, 0)
 
 	if err != nil {
 		return err
@@ -84,7 +84,7 @@ func (m *mySqlDatabase) Transaction(fun func(tx *sqlx.Tx) *errors.Error) *errors
 	}
 
 	e = tx.Commit()
-	err = errors.WrapPrefix(e, "error commiting the transaction", 0)
+	err = errors.WrapInner("error commiting the transaction", e, 0)
 
 	return err
 }
@@ -100,7 +100,7 @@ func (m *mySqlDatabase) Run(statements ...Statement) ([]sql.Result, *errors.Erro
 
 	if m.db == nil {
 		m.db, e = sqlx.Open(*m.drivername, *m.url+*m.database /*+"?interpolateParams=true"*/)
-		err = errors.WrapPrefix(e, "error opening the database", 0)
+		err = errors.WrapInner("error opening the database", e, 0)
 		if err == nil {
 			m.db.SetMaxOpenConns(5)
 		}
@@ -111,7 +111,7 @@ func (m *mySqlDatabase) Run(statements ...Statement) ([]sql.Result, *errors.Erro
 	}
 
 	tx, e := m.db.Begin()
-	err = errors.WrapPrefix(e, "error beginning the transaction", 0)
+	err = errors.WrapInner("error beginning the transaction", e, 0)
 
 	if err != nil {
 		return nil, err
@@ -121,7 +121,7 @@ func (m *mySqlDatabase) Run(statements ...Statement) ([]sql.Result, *errors.Erro
 		//interpolateParams=true
 		var result sql.Result
 		result, e = tx.Exec(statement.Statement, statement.Args...)
-		err = errors.WrapPrefix(e, "error executing the statement", 0)
+		err = errors.WrapInner("error executing the statement", e, 0)
 
 		if err != nil {
 			tx.Rollback()
@@ -133,7 +133,7 @@ func (m *mySqlDatabase) Run(statements ...Statement) ([]sql.Result, *errors.Erro
 	}
 
 	e = tx.Commit()
-	err = errors.WrapPrefix(e, "error commiting the transaction", 0)
+	err = errors.WrapInner("error commiting the transaction", e, 0)
 
 	//defer db.Close()
 	return results, err
@@ -149,7 +149,7 @@ func (m *mySqlDatabase) RunMisc(statements ...Statement) ([]interface{}, *errors
 
 	if m.db == nil {
 		m.db, e = sqlx.Open(*m.drivername, *m.url+*m.database /*+"?interpolateParams=true"*/)
-		err = errors.WrapPrefix(e, "error opening the database", 0)
+		err = errors.WrapInner("error opening the database", e, 0)
 		if err == nil {
 			m.db.SetMaxOpenConns(5)
 		}
@@ -160,7 +160,7 @@ func (m *mySqlDatabase) RunMisc(statements ...Statement) ([]interface{}, *errors
 	}
 
 	tx, e := m.db.Begin()
-	err = errors.WrapPrefix(e, "error beginning the transaction", 0)
+	err = errors.WrapInner("error beginning the transaction", e, 0)
 
 	if err != nil {
 		return nil, err
@@ -171,7 +171,7 @@ func (m *mySqlDatabase) RunMisc(statements ...Statement) ([]interface{}, *errors
 		if strings.HasPrefix(strings.ToUpper(strings.TrimSpace(statement.Statement)), "SELECT") {
 			var result *sql.Rows
 			result, e = tx.Query(statement.Statement, statement.Args...)
-			err = errors.WrapPrefix(e, "error executing the query", 0)
+			err = errors.WrapInner("error executing the query", e, 0)
 
 			if err != nil {
 				tx.Rollback()
@@ -183,7 +183,7 @@ func (m *mySqlDatabase) RunMisc(statements ...Statement) ([]interface{}, *errors
 			//interpolateParams=true
 			var result sql.Result
 			result, e = tx.Exec(statement.Statement, statement.Args...)
-			err = errors.WrapPrefix(e, "error executing the statement", 0)
+			err = errors.WrapInner("error executing the statement", e, 0)
 
 			if err != nil {
 				tx.Rollback()
@@ -195,7 +195,7 @@ func (m *mySqlDatabase) RunMisc(statements ...Statement) ([]interface{}, *errors
 	}
 
 	e = tx.Commit()
-	err = errors.WrapPrefix(e, "error commiting the transaction", 0)
+	err = errors.WrapInner("error commiting the transaction", e, 0)
 
 	//defer db.Close()
 	return results, err
@@ -210,7 +210,7 @@ func (m *mySqlDatabase) Query(dest interface{}, statements Statement) *errors.Er
 
 	if m.db == nil {
 		m.db, e = sqlx.Open(*m.drivername, *m.url+*m.database+"?parseTime=true" /*+"?interpolateParams=true"*/)
-		err = errors.WrapPrefix(e, "error opening the database", 0)
+		err = errors.WrapInner("error opening the database", e, 0)
 		if err == nil {
 			m.db.SetMaxOpenConns(5)
 		}
@@ -221,7 +221,7 @@ func (m *mySqlDatabase) Query(dest interface{}, statements Statement) *errors.Er
 	}
 
 	e = m.db.Select(dest, statements.Statement, statements.Args...)
-	err = errors.WrapPrefix(e, "error executing the select", 0)
+	err = errors.WrapInner("error executing the select", e, 0)
 
 	//defer db.Close()
 	return err
@@ -235,7 +235,7 @@ func (m *mySqlDatabase) Do(act func(db *sqlx.DB) *errors.Error) *errors.Error {
 
 	if m.db == nil {
 		m.db, e = sqlx.Open(*m.drivername, *m.url+*m.database+"?parseTime=true" /*+"?interpolateParams=true"*/)
-		err = errors.WrapPrefix(e, "error opening the database", 0)
+		err = errors.WrapInner("error opening the database", e, 0)
 		if err == nil {
 			m.db.SetMaxOpenConns(5)
 		}

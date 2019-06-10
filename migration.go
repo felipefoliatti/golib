@@ -37,13 +37,13 @@ func NewMigrator(drivername *string, database *string, url *string) (*SqlMigrate
 	mig.drivername = drivername
 
 	db, e := sql.Open(*mig.drivername, *mig.url)
-	err = errors.WrapPrefix(e, "error opening the connection to database", 0)
+	err = errors.WrapInner("error opening the connection to database", e, 0)
 
 	if err != nil {
 		return nil, err
 	}
 	_, e = db.Exec("CREATE DATABASE IF NOT EXISTS " + *mig.database)
-	err = errors.WrapPrefix(e, "error checking/creating the database", 0)
+	err = errors.WrapInner("error checking/creating the database", e, 0)
 
 	db.Close()
 
@@ -57,7 +57,7 @@ func (m *SqlMigrateMigrator) Migrate() *errors.Error {
 	var err *errors.Error
 
 	db, e := sql.Open(*m.drivername, *m.url+*m.database+"?parseTime=true")
-	err = errors.WrapPrefix(e, "error opening the connection to database", 0)
+	err = errors.WrapInner("error opening the connection to database", e, 0)
 
 	if err != nil {
 		return err
@@ -65,7 +65,7 @@ func (m *SqlMigrateMigrator) Migrate() *errors.Error {
 
 	migrations := &migrate.FileMigrationSource{Dir: "./migrations"}
 	n, e := migrate.Exec(db, *m.drivername, migrations, migrate.Up)
-	err = errors.WrapPrefix(e, "error migrating the database", 0)
+	err = errors.WrapInner("error migrating the database", e, 0)
 
 	if err != nil {
 		return err
