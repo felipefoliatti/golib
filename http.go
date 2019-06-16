@@ -110,7 +110,7 @@ func request(method string, logger Logger, url string, obj interface{}, target i
 	return err.(*errors.Error)
 }
 
-func Get(logger Logger, url string, target interface{}) *errors.Error {
+func Get(logger Logger, url string, target interface{}, headers map[string]string) *errors.Error {
 	err := backoff.Retry(func() error {
 
 		var e error
@@ -124,6 +124,12 @@ func Get(logger Logger, url string, target interface{}) *errors.Error {
 
 		if err == nil {
 			req.Header.Set("Content-Type", "application/json")
+
+			if headers != nil {
+				for key, value := range headers {
+					req.Header.Add(key, value)
+				}
+			}
 
 			client := &http.Client{Timeout: time.Second * 10, Transport: &http.Transport{Dial: (&net.Dialer{Timeout: 5 * time.Second}).Dial, TLSHandshakeTimeout: 5 * time.Second}}
 			resp, e = client.Do(req)
