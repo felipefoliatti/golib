@@ -1,5 +1,7 @@
 github.com/aws/aws-sdk-go v1.20.6 h1:kmy4Gvdlyez1fV4kw5RYxZzWKVyuHZHgPWeU/YvRsV4=
 github.com/aws/aws-sdk-go v1.20.6/go.mod h1:KmX6BPdI08NWTb3/sm4ZGu5ShLoqVDhKgpiN924inxo=
+github.com/felipefoliatti/backoff v1.0.1 h1:OOa7C5qegx5qk2NCJhxGyXTcW+8qYaNDDmV+do2RDoU=
+github.com/felipefoliatti/backoff v1.0.1/go.mod h1:Copy5oh0D/MXHw4BQ6jezDblvz5g/MJVSsiTA8wfpGU=
 github.com/felipefoliatti/backoff v2.1.1+incompatible h1:UBgnqfAek4gGVCM8P2/Vk3/x4bDWgcxQ8VCgeGOQr/g=
 github.com/felipefoliatti/backoff v2.1.1+incompatible/go.mod h1:cS7IYglSoqT6kruUPV3iNh4SFd3H0infO7T9hYSXLes=
 github.com/felipefoliatti/errors v1.0.1 h1:cG8CZLjWe2DZj2OVXPorCDtEy4n7P4cK74X7nwXz790=

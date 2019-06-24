@@ -2,7 +2,7 @@ module github.com/felipefoliatti/golib
 
 require (
 	github.com/aws/aws-sdk-go v1.20.6
-	github.com/felipefoliatti/backoff v2.1.1+incompatible
+	github.com/felipefoliatti/backoff v1.0.1
 	github.com/felipefoliatti/errors v1.0.3
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/jmoiron/sqlx v1.2.0
