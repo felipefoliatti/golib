@@ -92,7 +92,13 @@ func request(method string, logger Logger, url string, obj interface{}, target i
 					}
 
 					body := strings.Replace(buf.String(), "\"", "'", -1)
-					e = fmt.Errorf("error in service - %s - code %d and body %s", url, resp.StatusCode, body)
+
+					if obj == nil {
+						e = fmt.Errorf("error in service - %s %s -> code %d and body %s", method, url, resp.StatusCode, body)
+					} else {
+						e = fmt.Errorf("error in service - %s %s - body: %v -> code %d and body %s", method, url, obj, resp.StatusCode, body)
+					}
+
 					err = errors.WrapInner("error marshalling", e, 0)
 
 					return err
