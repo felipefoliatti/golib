@@ -227,7 +227,7 @@ func (q *amqQueue) Read() ([]*Message, *errors.Error) {
 			}
 		}
 
-		if oMsg == nil && nMsg == nil {
+		if (nMsg != nil && nMsg.Err != nil) {
 			if q.subscription != nil {
 				q.subscription.Unsubscribe()
 			}
@@ -236,7 +236,7 @@ func (q *amqQueue) Read() ([]*Message, *errors.Error) {
 			q.conn = nil
 			q.subscription = nil
 
-			return errors.New("failed to listen to queue: retrying to open a connection")
+			return errors.WrapInner("failed to listen to queue: retrying to open a connection", nMsg.Err, 0)
 		}
 
 		return nil

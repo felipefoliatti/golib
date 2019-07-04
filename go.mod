@@ -5,6 +5,7 @@ require (
 	github.com/felipefoliatti/backoff v1.0.1
 	github.com/felipefoliatti/errors v1.0.3
 	github.com/go-sql-driver/mysql v1.4.1
+	github.com/go-stomp/stomp v2.0.3+incompatible
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/rubenv/sql-migrate v0.0.0-20190618074426-f4d34eae5a5c
 	github.com/satori/go.uuid v0.0.0-20190618074426-b2ce2384e17b
