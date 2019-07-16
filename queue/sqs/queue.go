@@ -12,6 +12,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/satori/go.uuid"
+	"github.com/felipefoliatti/errors"
+
 )
 
 // Message define uma mensagem lida da fila
@@ -26,9 +28,9 @@ type Message struct {
 // Uma queue que pode ter diversas implementações
 // Um tipo Queue poderá ser FIFO, onde há sua ordem garantida
 type Queue interface {
-	Send(content *string) (*string, error)
-	Read() ([]*Message, error)
-	Delete(handle *string) error
+	Send(content *string) (*string, *errors.Error)
+	Read() ([]*Message, *errors.Error)
+	Delete(handle *string) *errors.Error
 }
 
 // SqsQueue define uma implementação de uma Queue para a Amazon AWS
@@ -49,7 +51,9 @@ type sqsQueue struct {
 // NewQueue inicia uma nova SqsQueue a partir de um nome
 // Se a fila não existir, ela será criada
 // Caso exista, apenas será retornada
-func NewQueue(name *string, sufix *string, endpoint *string, accessKey *string, secret *string, region *string, visibility int) (Queue, error) {
+func NewQueue(name *string, sufix *string, endpoint *string, accessKey *string, secret *string, region *string, visibility int) (Queue, *errors.Error) {
+	var err *errors.Error
+
 	self := &sqsQueue{}
 	self.accessKey = accessKey
 	self.secret = secret
@@ -61,7 +65,8 @@ func NewQueue(name *string, sufix *string, endpoint *string, accessKey *string, 
 	token := ""
 
 	creds := credentials.NewStaticCredentials(*accessKey, *secret, token)
-	_, err := creds.Get()
+	_, e := creds.Get()
+	err = errors.WrapInner("unable to get credentials", e, 0)
 
 	if err != nil {
 		return nil, err
@@ -77,13 +82,14 @@ func NewQueue(name *string, sufix *string, endpoint *string, accessKey *string, 
 
 	//Cria a queue se não existir
 	params := &sqs.GetQueueUrlInput{QueueName: name}
-	resp, err := svc.GetQueueUrl(params)
+	resp, e := svc.GetQueueUrl(params)
+	err = errors.WrapInner("unable to get the queue", e, 0)
 
 	if err == nil {
 		self.url = resp.QueueUrl
 	} else {
 		//Verifica se é um erro de não existir
-		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == sqs.ErrCodeQueueDoesNotExist {
+		if aerr, ok := err.Root().(awserr.Error); ok && aerr.Code() == sqs.ErrCodeQueueDoesNotExist {
 
 			//Caso não exista, então cria a queue
 			attr := map[string]*string{}
@@ -94,7 +100,8 @@ func NewQueue(name *string, sufix *string, endpoint *string, accessKey *string, 
 			}
 
 			params := &sqs.CreateQueueInput{QueueName: self.name, Attributes: attr}
-			resp, err := svc.CreateQueue(params)
+			resp, e := svc.CreateQueue(params)
+			err = errors.WrapInner("unable to create the queue", e, 0)
 
 			//Caso haja erro, encerra
 			if err != nil {
@@ -111,15 +118,18 @@ func NewQueue(name *string, sufix *string, endpoint *string, accessKey *string, 
 // Send é a implementação para uma SqsQueue que envia uma mensagem
 // Como retorno, ele retorna um GUID, indicando a identificação da mensagem enviada
 // Caso haja algum erro, então um objeto error é retornado
-func (q *sqsQueue) Send(content *string) (*string, error) {
+func (q *sqsQueue) Send(content *string) (*string, *errors.Error) {
 
-	guid, err := uuid.NewV4()
-	req, err := q.svc.SendMessage(&sqs.SendMessageInput{
+	var err *errors.Error
+	guid := uuid.Must(uuid.NewV4())
+
+	req, e := q.svc.SendMessage(&sqs.SendMessageInput{
 		MessageBody:            content,
 		QueueUrl:               q.url,
 		MessageDeduplicationId: aws.String(guid.String()),
 		MessageGroupId:         aws.String("base"),
 	})
+	err = errors.WrapInner("unable to send message to queue", e, 0)
 
 	if err != nil {
 		return nil, err
@@ -131,8 +141,9 @@ func (q *sqsQueue) Send(content *string) (*string, error) {
 // Read realiza uma leitura bloqueante na SqsQueue, de modo que, se houve uma mensagem, ela retorna,
 // caso contrário, retorna uma lista vazia de mensagens
 // Se houver algum erro, é retornado no objeto error
-func (q *sqsQueue) Read() ([]*Message, error) {
-	result, err := q.svc.ReceiveMessage(&sqs.ReceiveMessageInput{
+func (q *sqsQueue) Read() ([]*Message, *errors.Error) {
+	var err *errors.Error
+	result, e := q.svc.ReceiveMessage(&sqs.ReceiveMessageInput{
 		AttributeNames:        []*string{aws.String(sqs.MessageSystemAttributeNameSentTimestamp)},
 		MessageAttributeNames: []*string{aws.String(sqs.QueueAttributeNameAll)},
 		QueueUrl:              q.url,
@@ -140,6 +151,7 @@ func (q *sqsQueue) Read() ([]*Message, error) {
 		VisibilityTimeout:     aws.Int64(int64(q.visibility)),
 		WaitTimeSeconds:       aws.Int64(20),
 	})
+	err = errors.WrapInner("unable to read the queue", e, 0)
 
 	if err != nil {
 		return nil, err
@@ -154,10 +166,12 @@ func (q *sqsQueue) Read() ([]*Message, error) {
 }
 
 // Delete remove uma mensagem baseada em seu handle, que é uma string
-func (q *sqsQueue) Delete(handle *string) error {
-	_, err := q.svc.DeleteMessage(&sqs.DeleteMessageInput{
+func (q *sqsQueue) Delete(handle *string) *errors.Error {
+	var err *errors.Error
+	_, e := q.svc.DeleteMessage(&sqs.DeleteMessageInput{
 		QueueUrl:      q.url,
 		ReceiptHandle: handle,
 	})
+	err = errors.WrapInner("unable to delete message", e, 0)
 	return err
 }
