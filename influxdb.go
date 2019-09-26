@@ -142,7 +142,7 @@ func NewInflux(database string, host string, port string, retention string) (*In
 	}
 
 	if err == nil {
-		_, err = obj.Query(fmt.Sprintf("CREATE RETENTION POLICY \"%s\" ON \"%s\" DURATION %s REPLICATION 1 DEFAULT", obj.retention, obj.database, obj.retention))
+		_, err = obj.Query(fmt.Sprintf("CREATE RETENTION POLICY \"%s\" ON \"%s\" DURATION %s REPLICATION 1", obj.retention, obj.database, obj.retention))
 	}
 
 	return obj, err
