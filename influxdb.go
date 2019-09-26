@@ -12,9 +12,10 @@ import (
 )
 
 type Influx struct {
-	url      string
-	database string
-	client   v2.Client
+	url       string
+	database  string
+	client    v2.Client
+	retention string
 }
 
 func (i *Influx) Write(measurement string, fields map[string]interface{}, tags map[string]string, time time.Time) *errors.Error {
@@ -24,8 +25,9 @@ func (i *Influx) Write(measurement string, fields map[string]interface{}, tags m
 
 	// Create a new point batch
 	bp, e := v2.NewBatchPoints(v2.BatchPointsConfig{
-		Database:  i.database,
-		Precision: "ns",
+		Database:        i.database,
+		Precision:       "ns",
+		RetentionPolicy: i.retention,
 		// RetentionPolicy: "720d",
 	})
 
@@ -94,8 +96,9 @@ func (i *Influx) Query(cmd string) ([]v2.Result, *errors.Error) {
 	var res []v2.Result
 
 	q := v2.Query{
-		Command:  cmd,
-		Database: i.database,
+		Command:         cmd,
+		Database:        i.database,
+		RetentionPolicy: i.retention,
 	}
 	if response, e := i.client.Query(q); e == nil {
 
@@ -138,7 +141,7 @@ func NewInflux(database string, host string, port string) (*Influx, *errors.Erro
 	}
 
 	if err == nil {
-		_, err = obj.Query(fmt.Sprintf("CREATE RETENTION POLICY \"%s\" ON \"%s\" DURATION %s REPLICATION 1 DEFAULT", "112w", obj.database, "112w"))
+		_, err = obj.Query(fmt.Sprintf("CREATE RETENTION POLICY \"%s\" ON \"%s\" DURATION %s REPLICATION 1 DEFAULT", obj.retention, obj.database, obj.retention))
 
 	}
 
