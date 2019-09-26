@@ -114,7 +114,7 @@ func (i *Influx) Query(cmd string) ([]v2.Result, *errors.Error) {
 	return res, nil
 }
 
-func NewInflux(database string, host string, port string) (*Influx, *errors.Error) {
+func NewInflux(database string, host string, port string, retention string) (*Influx, *errors.Error) {
 
 	var err *errors.Error
 	var e error
@@ -122,6 +122,7 @@ func NewInflux(database string, host string, port string) (*Influx, *errors.Erro
 	obj := &Influx{}
 	obj.url = host + ":" + port
 	obj.database = database
+	obj.retention = retention
 
 	//try to connect 3 times
 	e = backoff.Retry(func() error {
