@@ -9,7 +9,7 @@ import (
 
 //Sleeper define uma interface que avalia um erro, guarda seu estado e, conforme for, pára ou não o processo
 type Sleeper interface {
-	Eval(err *errors.Error)
+	Eval(err *errors.Error) *errors.Error
 }
 
 //SleeperImpl é a implementação do Sleeper que fornece um cálculo exponencial de paradas quando os erros se repetem
@@ -26,7 +26,7 @@ type sleeperImpl struct {
 //Eval realiza uma avaliação do erro para ver se ele é recorrente
 //Se ele for, então realiza uma parada, levando em conta o limite max
 //Por fim, uma função action será executada, informando se houve ou não parada, e o tempo de parada
-func (s *sleeperImpl) Eval(erro *errors.Error) {
+func (s *sleeperImpl) Eval(erro *errors.Error) *errors.Error {
 	if s.lastError != nil && erro != nil && s.lastError.Error() == erro.Error() {
 
 		s.errors = int(math.Min(float64(s.errors+1), float64(s.max+1)))       //s.max + 1, já que diminiu um em 2^(s.errors-1)
@@ -48,6 +48,8 @@ func (s *sleeperImpl) Eval(erro *errors.Error) {
 		s.lastError = nil
 		s.errors = 0
 	}
+
+	return erro
 
 }
 
