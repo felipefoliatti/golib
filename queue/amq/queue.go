@@ -9,11 +9,10 @@ import (
 
 	"github.com/felipefoliatti/backoff"
 	"github.com/felipefoliatti/errors"
+	"github.com/go-stomp/stomp"
 
 	"github.com/aws/aws-sdk-go/aws"
 	uuid "github.com/satori/go.uuid"
-
-	stomp "github.com/go-stomp/stomp"
 )
 
 // Message define uma mensagem lida da fila
@@ -26,6 +25,13 @@ type Message struct {
 	times     int
 	available time.Time
 }
+
+type Type int
+
+const (
+	SUBSCRIPTION Type = 1
+	WRITE        Type = 2
+)
 
 // Queue define um tipo que faz traca de mensagens
 // Uma queue que pode ter diversas implementações
@@ -47,7 +53,7 @@ type amqQueue struct {
 	user         *string
 	password     *string
 	destination  *string
-	conn         *stomp.Conn
+	conn         map[Type]*stomp.Conn
 	subscription *stomp.Subscription
 	messages     []*Message
 	wait         time.Duration
@@ -65,12 +71,14 @@ func NewQueue(destination *string, host *string, port *string, user *string, pas
 	self.messages = []*Message{}
 	self.wait = time.Hour //1 hour
 
-	err := self.connect()
+	self.conn = map[Type]*stomp.Conn{}
+	//err := self.connect()
 
-	return self, err
+	return self, nil
 }
 
-func (q *amqQueue) connect() *errors.Error {
+func (q *amqQueue) connect(t Type) *errors.Error {
+
 	var err *errors.Error
 	if strings.Contains(*q.host, "https") {
 
@@ -81,13 +89,15 @@ func (q *amqQueue) connect() *errors.Error {
 			return err
 		}
 
-		q.conn, e = stomp.Connect(dial, stomp.ConnOpt.Login(*q.user, *q.password), stomp.ConnOpt.HeartBeatError(60*time.Second), stomp.ConnOpt.WriteChannelCapacity(20000), stomp.ConnOpt.ReadChannelCapacity(20000))
+		conn, e := stomp.Connect(dial, stomp.ConnOpt.Login(*q.user, *q.password), stomp.ConnOpt.HeartBeatError(60*time.Second), stomp.ConnOpt.WriteChannelCapacity(20000), stomp.ConnOpt.ReadChannelCapacity(20000))
 		err = errors.WrapInner("error connecting to queue via STOMP", e, 0)
 
 		//If any error, stops
 		if err != nil {
 			return err
 		}
+
+		q.conn[t] = conn
 
 	} else {
 
@@ -99,13 +109,16 @@ func (q *amqQueue) connect() *errors.Error {
 			return err
 		}
 
-		q.conn, e = stomp.Connect(dial, stomp.ConnOpt.Login(*q.user, *q.password), stomp.ConnOpt.HeartBeatError(60*time.Second), stomp.ConnOpt.WriteChannelCapacity(20000), stomp.ConnOpt.ReadChannelCapacity(20000))
+		conn, e := stomp.Connect(dial, stomp.ConnOpt.Login(*q.user, *q.password), stomp.ConnOpt.HeartBeatError(60*time.Second), stomp.ConnOpt.WriteChannelCapacity(20000), stomp.ConnOpt.ReadChannelCapacity(20000))
 		err = errors.WrapInner("error opening the connection to queue", e, 0)
 
 		//If any error, stops
 		if err != nil {
 			return err
 		}
+
+		q.conn[t] = conn
+
 	}
 
 	return nil
@@ -125,20 +138,23 @@ func (q *amqQueue) Send(content *string) (*string, *errors.Error) {
 
 	e = backoff.Retry(func() error {
 
-		if q.conn == nil {
-			q.connect()
+		if q.conn[WRITE] == nil {
+			err = q.connect(WRITE)
 		}
 
-		e = q.conn.Send(*q.destination, "application/json", []byte(*content), stomp.SendOpt.Receipt, stomp.SendOpt.Header("persistent", "true"), stomp.SendOpt.Header("correlation-id", guid.String()))
-		err = errors.WrapInner("failed to listen to topic: retrying to open a connection", e, 0)
+		if err == nil {
 
-		if err != nil {
-			q.conn.Disconnect()
-			q.conn = nil
-			return err
+			e = q.conn[WRITE].Send(*q.destination, "application/json", []byte(*content), stomp.SendOpt.Receipt, stomp.SendOpt.Header("persistent", "true"), stomp.SendOpt.Header("correlation-id", guid.String()))
+			err = errors.WrapInner("failed to listen to topic: retrying to open a connection", e, 0)
+
+			if err != nil {
+				q.conn[WRITE].Disconnect()
+				q.conn[WRITE] = nil
+				return err
+			}
 		}
 
-		return nil
+		return err
 
 	}, backoff.WithMaxRetries(backoff.NewExponentialBackOff(), 3))
 
@@ -163,17 +179,17 @@ func (q *amqQueue) Read() ([]*Message, *errors.Error) {
 
 	e = backoff.Retry(func() error {
 
-		if q.conn == nil {
-			e = q.connect()
+		if q.conn[SUBSCRIPTION] == nil {
+			e = q.connect(SUBSCRIPTION)
 			if e != nil {
 				return e
 			}
 		}
 
-		if q.subscription == nil && q.conn != nil {
+		if q.subscription == nil && q.conn[SUBSCRIPTION] != nil {
 
 			//Create the subscription
-			q.subscription, e = q.conn.Subscribe(*q.destination, stomp.AckClientIndividual)
+			q.subscription, e = q.conn[SUBSCRIPTION].Subscribe(*q.destination, stomp.AckClientIndividual)
 			err = errors.WrapInner("error subscribing to queue", e, 0)
 
 			//If any error, stops
@@ -227,13 +243,13 @@ func (q *amqQueue) Read() ([]*Message, *errors.Error) {
 			}
 		}
 
-		if (nMsg != nil && nMsg.Err != nil) {
+		if nMsg != nil && nMsg.Err != nil {
 			if q.subscription != nil {
 				q.subscription.Unsubscribe()
 			}
 
-			q.conn.Disconnect()
-			q.conn = nil
+			q.conn[SUBSCRIPTION].Disconnect()
+			q.conn[SUBSCRIPTION] = nil
 			q.subscription = nil
 
 			return errors.WrapInner("failed to listen to queue: retrying to open a connection", nMsg.Err, 0)
@@ -252,11 +268,11 @@ func (q *amqQueue) Read() ([]*Message, *errors.Error) {
 		return nil, errors.WrapInner("failed to listen to queue", nMsg.Err, 0)
 	}
 
-	messages := make([]*Message, 1)
+	messages := []*Message{}
 
 	if nMsg != nil {
 		//If any new message from queue
-		messages[0] = &Message{Id: aws.String(nMsg.Header.Get("correlation-id")), Content: aws.String(string(nMsg.Body)), Handler: nMsg, times: 1, available: time.Now()}
+		messages = append(messages, &Message{Id: aws.String(nMsg.Header.Get("correlation-id")), Content: aws.String(string(nMsg.Body)), Handler: nMsg, times: 1, available: time.Now()})
 		//check to see if the message is inside the messages (if the broker resend it - if find, then remove it)
 		for i, m := range q.messages {
 			if m.Id == messages[0].Id {
@@ -265,7 +281,7 @@ func (q *amqQueue) Read() ([]*Message, *errors.Error) {
 		}
 	} else if oMsg != nil {
 		//If any old message to try again
-		messages[0] = oMsg
+		messages = append(messages, oMsg)
 	}
 
 	return messages, nil
@@ -274,12 +290,12 @@ func (q *amqQueue) Read() ([]*Message, *errors.Error) {
 // Delete/Ack the message
 func (q *amqQueue) Ack(handle *Message) *errors.Error {
 	msg := handle.Handler.(*stomp.Message)
-	e := q.conn.Ack(msg)
+	e := q.conn[SUBSCRIPTION].Ack(msg)
 	return errors.WrapInner("error ack'ing the message", e, 0)
 }
 func (q *amqQueue) NAck(handle *Message) *errors.Error {
 	msg := handle.Handler.(*stomp.Message)
-	e := q.conn.Nack(msg)
+	e := q.conn[SUBSCRIPTION].Nack(msg)
 	return errors.WrapInner("error nack'ing the message", e, 0)
 }
 
