@@ -16,6 +16,7 @@ type Influx struct {
 	database  string
 	client    v2.Client
 	retention string
+	duration  string
 }
 
 func (i *Influx) Write(measurement string, fields map[string]interface{}, tags map[string]string, time time.Time) *errors.Error {
@@ -114,7 +115,7 @@ func (i *Influx) Query(cmd string) ([]v2.Result, *errors.Error) {
 	return res, nil
 }
 
-func NewInflux(database string, host string, port string, retention string) (*Influx, *errors.Error) {
+func NewInflux(database string, host string, port string, retention string, duration string) (*Influx, *errors.Error) {
 
 	var err *errors.Error
 	var e error
@@ -123,6 +124,7 @@ func NewInflux(database string, host string, port string, retention string) (*In
 	obj.url = host + ":" + port
 	obj.database = database
 	obj.retention = retention
+	obj.duration = duration
 
 	//try to connect 3 times
 	e = backoff.Retry(func() error {
@@ -142,7 +144,7 @@ func NewInflux(database string, host string, port string, retention string) (*In
 	}
 
 	if err == nil {
-		_, err = obj.Query(fmt.Sprintf("CREATE RETENTION POLICY \"%s\" ON \"%s\" DURATION %s REPLICATION 1", obj.retention, obj.database, obj.retention))
+		_, err = obj.Query(fmt.Sprintf("CREATE RETENTION POLICY \"%s\" ON \"%s\" DURATION %s REPLICATION 1", obj.retention, obj.database, obj.duration))
 	}
 
 	return obj, err
