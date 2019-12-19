@@ -82,15 +82,35 @@ func (q *amqQueue) connect(t Type) *errors.Error {
 	var err *errors.Error
 	if strings.Contains(*q.host, "https") {
 
-		dial, e := tls.Dial("tcp", strings.Replace(*q.host, "https://", "", -1)+":"+*q.port, &tls.Config{})
+		dialer := net.Dialer{Timeout: time.Minute}
+		dial, e := tls.DialWithDialer(&dialer, "tcp", strings.Replace(*q.host, "https://", "", -1)+":"+*q.port, &tls.Config{})
+
 		err = errors.WrapInner("error opening the connection to queue via HTTPS", e, 0)
 		//If any error, stops
 		if err != nil {
 			return err
 		}
 
-		conn, e := stomp.Connect(dial, stomp.ConnOpt.Login(*q.user, *q.password), stomp.ConnOpt.HeartBeatError(60*time.Second), stomp.ConnOpt.WriteChannelCapacity(20000), stomp.ConnOpt.ReadChannelCapacity(20000))
-		err = errors.WrapInner("error connecting to queue via STOMP", e, 0)
+		var conn *stomp.Conn
+		connected := make(chan bool)
+
+		//sometimes, if the remote server is not alive or tcp connection stops, the connection is closed - when try to reconnect - it stucks forever - here we wait two minutes to connect
+		go func() {
+			var e error
+			conn, e = stomp.Connect(dial, stomp.ConnOpt.Login(*q.user, *q.password), stomp.ConnOpt.HeartBeatError(60*time.Second), stomp.ConnOpt.WriteChannelCapacity(20000), stomp.ConnOpt.ReadChannelCapacity(20000))
+			err = errors.WrapInner("error connecting to queue via STOMP", e, 0)
+			connected <- err == nil //check if success
+		}()
+
+		var success *bool
+		for success == nil {
+			select {
+			case s := <-connected:
+				success = &s //put the information here
+			case <-time.After(2 * time.Minute):
+				dial.Close() //cloce all the shit - when close, release the io.Reader.Read from the goroutine above
+			}
+		}
 
 		//If any error, stops
 		if err != nil {
@@ -101,7 +121,9 @@ func (q *amqQueue) connect(t Type) *errors.Error {
 
 	} else {
 
-		dial, e := net.Dial("tcp", strings.Replace(*q.host, "http://", "", -1)+":"+*q.port)
+		dialer := net.Dialer{Timeout: time.Minute}
+		dial, e := dialer.Dial("tcp", strings.Replace(*q.host, "http://", "", -1)+":"+*q.port)
+
 		err = errors.WrapInner("error opening the connection to queue via HTTP", e, 0)
 
 		//If any error, stops
@@ -109,8 +131,26 @@ func (q *amqQueue) connect(t Type) *errors.Error {
 			return err
 		}
 
-		conn, e := stomp.Connect(dial, stomp.ConnOpt.Login(*q.user, *q.password), stomp.ConnOpt.HeartBeatError(60*time.Second), stomp.ConnOpt.WriteChannelCapacity(20000), stomp.ConnOpt.ReadChannelCapacity(20000))
-		err = errors.WrapInner("error opening the connection to queue", e, 0)
+		var conn *stomp.Conn
+		connected := make(chan bool)
+
+		//sometimes, if the remote server is not alive or tcp connection stops, the connection is closed - when try to reconnect - it stucks forever - here we wait two minutes to connect
+		go func() {
+			var e error
+			conn, e = stomp.Connect(dial, stomp.ConnOpt.Login(*q.user, *q.password), stomp.ConnOpt.HeartBeatError(60*time.Second), stomp.ConnOpt.WriteChannelCapacity(20000), stomp.ConnOpt.ReadChannelCapacity(20000))
+			err = errors.WrapInner("error opening the connection to queue", e, 0)
+			connected <- err == nil //check if success
+		}()
+
+		var success *bool
+		for success == nil {
+			select {
+			case s := <-connected:
+				success = &s //put the information here
+			case <-time.After(2 * time.Minute):
+				dial.Close() //cloce all the shit  - when close, release the io.Reader.Read from the goroutine above
+			}
+		}
 
 		//If any error, stops
 		if err != nil {
