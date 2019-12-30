@@ -89,6 +89,29 @@ func (m *mySqlDatabase) Transaction(fun func(tx *sqlx.Tx) *errors.Error) *errors
 	return err
 }
 
+// Run statements in a given transaction
+// if runs succesful, the first return will have an array of results and the error return will be nil
+// if the run fail, the first return will be nil and the error return will have the error
+func (m *mySqlDatabase) RunTx(tx *sqlx.Tx, statements ...Statement) ([]sql.Result, *errors.Error) {
+	//Run the instructions
+	var res []sql.Result
+	var err *errors.Error
+
+	for _, statement := range statements {
+		var r sql.Result
+		var e error
+		r, e = tx.Exec(statement.Statement, statement.Args...)
+		err = errors.WrapInner("error executing the update", e, 0)
+		res = append(res, r)
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return res, err
+}
+
 // Run realiza a execução de uma instrução SQL
 // Se houver um erro, um objeto error é retornado
 func (m *mySqlDatabase) Run(statements ...Statement) ([]sql.Result, *errors.Error) {
