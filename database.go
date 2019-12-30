@@ -25,6 +25,7 @@ type Database interface {
 	RunMisc(statements ...Statement) ([]interface{}, *errors.Error)
 	Query(dest interface{}, statement Statement) *errors.Error
 	Transaction(fun func(tx *sqlx.Tx) *errors.Error) *errors.Error
+	RunTx(tx *sqlx.Tx, statements ...Statement) ([]sql.Result, *errors.Error)
 	Do(act func(db *sqlx.DB) *errors.Error) *errors.Error
 }
 
