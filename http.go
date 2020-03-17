@@ -75,13 +75,13 @@ func request(method string, logger Logger, url string, obj interface{}, target i
 
 				if resp.StatusCode == 200 || resp.StatusCode == 202 {
 
-					e = nil
+					err = nil
 					if target != nil {
 						//var response Response
 						e = json.NewDecoder(resp.Body).Decode(&target)
 						err = errors.WrapInner("error decoding", e, 0)
 					}
-					return e
+					return err
 
 				} else {
 					//body, err := ioutil.ReadAll(resp.Body)
