@@ -5,6 +5,9 @@ import (
 	"math"
 	"net"
 	"strings"
+
+	"golang.org/x/sync/syncmap"
+
 	"time"
 
 	"github.com/felipefoliatti/backoff"
@@ -48,12 +51,13 @@ type Queue interface {
 // Um tipo AmqQueue deve ser instanciado com o nome da Queue e internamente ele
 // irá procurar pela URL ou, caso não exista, irá criar um tipo
 type amqQueue struct {
-	host         *string
-	port         *string
-	user         *string
-	password     *string
-	destination  *string
-	conn         map[Type]*stomp.Conn
+	host        *string
+	port        *string
+	user        *string
+	password    *string
+	destination *string
+	//conn         map[Type]*stomp.Conn
+	conn         syncmap.Map
 	subscription *stomp.Subscription
 	messages     []*Message
 	wait         time.Duration
@@ -71,7 +75,8 @@ func NewQueue(destination *string, host *string, port *string, user *string, pas
 	self.messages = []*Message{}
 	self.wait = time.Hour //1 hour
 
-	self.conn = map[Type]*stomp.Conn{}
+	//self.conn = map[Type]*stomp.Conn{}
+	self.conn = syncmap.Map{}
 	//err := self.connect()
 
 	return self, nil
@@ -117,7 +122,7 @@ func (q *amqQueue) connect(t Type) *errors.Error {
 			return err
 		}
 
-		q.conn[t] = conn
+		q.conn.Store(t, conn)
 
 	} else {
 
@@ -157,7 +162,7 @@ func (q *amqQueue) connect(t Type) *errors.Error {
 			return err
 		}
 
-		q.conn[t] = conn
+		q.conn.Store(t, conn)
 
 	}
 
@@ -178,18 +183,21 @@ func (q *amqQueue) Send(content *string) (*string, *errors.Error) {
 
 	e = backoff.Retry(func() error {
 
-		if q.conn[WRITE] == nil {
+		if _, ok := q.conn.Load(WRITE); !ok {
 			err = q.connect(WRITE)
 		}
 
 		if err == nil {
 
-			e = q.conn[WRITE].Send(*q.destination, "application/json", []byte(*content), stomp.SendOpt.Receipt, stomp.SendOpt.Header("persistent", "true"), stomp.SendOpt.Header("correlation-id", guid.String()))
+			obj, _ := q.conn.Load(WRITE)
+			queue := obj.(*stomp.Conn)
+
+			e = queue.Send(*q.destination, "application/json", []byte(*content), stomp.SendOpt.Receipt, stomp.SendOpt.Header("persistent", "true"), stomp.SendOpt.Header("correlation-id", guid.String()))
 			err = errors.WrapInner("failed to listen to topic: retrying to open a connection", e, 0)
 
 			if err != nil {
-				q.conn[WRITE].Disconnect()
-				q.conn[WRITE] = nil
+				queue.Disconnect()
+				q.conn.Delete(WRITE)
 				return err
 			}
 		}
@@ -219,22 +227,27 @@ func (q *amqQueue) Read() ([]*Message, *errors.Error) {
 
 	e = backoff.Retry(func() error {
 
-		if q.conn[SUBSCRIPTION] == nil {
+		if _, ok := q.conn.Load(SUBSCRIPTION); !ok {
 			e = q.connect(SUBSCRIPTION)
 			if e != nil {
 				return e
 			}
 		}
 
-		if q.subscription == nil && q.conn[SUBSCRIPTION] != nil {
+		if q.subscription == nil {
 
-			//Create the subscription
-			q.subscription, e = q.conn[SUBSCRIPTION].Subscribe(*q.destination, stomp.AckClientIndividual)
-			err = errors.WrapInner("error subscribing to queue", e, 0)
+			obj, ok := q.conn.Load(SUBSCRIPTION)
+			if ok {
+				queue := obj.(*stomp.Conn)
 
-			//If any error, stops
-			if err != nil {
-				return err
+				//Create the subscription
+				q.subscription, e = queue.Subscribe(*q.destination, stomp.AckClientIndividual)
+				err = errors.WrapInner("error subscribing to queue", e, 0)
+
+				//If any error, stops
+				if err != nil {
+					return err
+				}
 			}
 		}
 
@@ -288,8 +301,11 @@ func (q *amqQueue) Read() ([]*Message, *errors.Error) {
 				q.subscription.Unsubscribe()
 			}
 
-			q.conn[SUBSCRIPTION].Disconnect()
-			q.conn[SUBSCRIPTION] = nil
+			obj, _ := q.conn.Load(SUBSCRIPTION)
+			queue := obj.(*stomp.Conn)
+
+			queue.Disconnect()
+			q.conn.Delete(SUBSCRIPTION)
 			q.subscription = nil
 
 			return errors.WrapInner("failed to listen to queue: retrying to open a connection", nMsg.Err, 0)
@@ -330,12 +346,20 @@ func (q *amqQueue) Read() ([]*Message, *errors.Error) {
 // Delete/Ack the message
 func (q *amqQueue) Ack(handle *Message) *errors.Error {
 	msg := handle.Handler.(*stomp.Message)
-	e := q.conn[SUBSCRIPTION].Ack(msg)
+
+	obj, _ := q.conn.Load(SUBSCRIPTION)
+	queue := obj.(*stomp.Conn)
+
+	e := queue.Ack(msg)
 	return errors.WrapInner("error ack'ing the message", e, 0)
 }
 func (q *amqQueue) NAck(handle *Message) *errors.Error {
 	msg := handle.Handler.(*stomp.Message)
-	e := q.conn[SUBSCRIPTION].Nack(msg)
+
+	obj, _ := q.conn.Load(SUBSCRIPTION)
+	queue := obj.(*stomp.Conn)
+
+	e := queue.Nack(msg)
 	return errors.WrapInner("error nack'ing the message", e, 0)
 }
 
