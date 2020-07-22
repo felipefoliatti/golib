@@ -84,6 +84,13 @@ func request(method string, logger Logger, url string, obj interface{}, target i
 					return err
 
 				} else {
+
+					//try to decode if there is a target (suppress any error)
+					if target != nil {
+						//var response Response
+						_ = json.NewDecoder(resp.Body).Decode(&target)
+					}
+
 					//body, err := ioutil.ReadAll(resp.Body)
 					scanner := bufio.NewScanner(resp.Body)
 					scanner.Split(bufio.ScanRunes)
