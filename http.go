@@ -88,19 +88,20 @@ func request(method string, logger Logger, url string, obj interface{}, target i
 					scanner := bufio.NewScanner(resp.Body)
 					scanner.Split(bufio.ScanRunes)
 					var buf bytes.Buffer
+
 					for scanner.Scan() {
 						buf.WriteString(scanner.Text())
 					}
 
+					body := buf.String()
+
 					//try to decode if there is a target (suppress any error)
 					if target != nil {
-						//var response Response
-						_ = json.NewDecoder(strings.NewReader(buf.String())).Decode(&target)
+						_ = json.Unmarshal([]byte(body), &target)
 					}
 
-					//body, err := ioutil.ReadAll(resp.Body)
-
-					body := strings.Replace(buf.String(), "\"", "'", -1)
+					//cleans up the string to print
+					body = strings.Replace(body, "\"", "'", -1)
 
 					if obj == nil {
 						e = fmt.Errorf("error in service - %s %s -> code %d and body %s", method, url, resp.StatusCode, body)
