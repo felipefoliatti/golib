@@ -98,8 +98,7 @@ func request(method string, logger Logger, url string, obj interface{}, target i
 					//try to decode if there is a target (suppress any error)
 					if target != nil {
 						b := strings.Replace(body, "'", "\"", -1)
-						e = json.Unmarshal([]byte(b), &target)
-						fmt.Printf("OPSSS:: %v", e)
+						_ = json.Unmarshal([]byte(b), &target)
 					}
 
 					//cleans up the string to print

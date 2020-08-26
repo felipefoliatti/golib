@@ -246,6 +246,12 @@ func (q *amqQueue) Read() ([]*Message, *errors.Error) {
 
 				//If any error, stops
 				if err != nil {
+
+					//if any error subscribing, clear up everything
+					queue.Disconnect()
+					q.conn.Delete(SUBSCRIPTION)
+					q.subscription = nil
+
 					return err
 				}
 			}
