@@ -25,6 +25,9 @@ func Patch(logger Logger, url string, obj interface{}, target interface{}, heade
 func Head(logger Logger, url string, obj interface{}, target interface{}, headers map[string]string) *errors.Error {
 	return request("HEAD", logger, url, obj, target, headers)
 }
+func Delete(logger Logger, url string, obj interface{}, target interface{}, headers map[string]string) *errors.Error {
+	return request("DELETE", logger, url, obj, target, headers)
+}
 func Get(logger Logger, url string, target interface{}, headers map[string]string) *errors.Error {
 	return request("GET", logger, url, nil, target, headers)
 }
