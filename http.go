@@ -102,18 +102,39 @@ func request(method string, logger Logger, url string, obj interface{}, target i
 					if target != nil {
 						b := strings.Replace(body, "'", "\"", -1)
 						_ = json.Unmarshal([]byte(b), &target)
-					}
+					} 
 
 					//cleans up the string to print
-					body = strings.Replace(body, "\"", "'", -1)
+					pbody := strings.Replace(body, "\"", "'", -1)
+					var baseErr error
 
+					//create a base error (or a caused by)
 					if obj == nil {
-						e = fmt.Errorf("error in service - %s %s -> code %d and body %s", method, url, resp.StatusCode, body)
+						baseErr = fmt.Errorf("error in service - %s %s -> code %d and body %s", method, url, resp.StatusCode, pbody)
 					} else {
-						e = fmt.Errorf("error in service - %s %s - body: %v -> code %d and body %s", method, url, obj, resp.StatusCode, body)
+						baseErr = fmt.Errorf("error in service - %s %s - body: %v -> code %d and body %s", method, url, obj, resp.StatusCode, pbody)
 					}
 
-					err = errors.WrapInner("error marshalling", e, 0)
+					//try to convert to error
+					type Response struct {
+						Success bool `json:"success"`
+						Code    *int `json:"code"`
+						Detail  struct {
+							Message *string `json:"message"`
+						} `json:"detail"`
+					}
+					response := Response{}
+					b := strings.Replace(body, "'", "\"", -1)
+					e = json.Unmarshal([]byte(body), &response)
+				
+					//check if the error was parsed
+					if e == nil && response.Code != nil && response.Detail.Message != nil{
+						//if possible to decode the error
+						err = errors.WrapInnerWithCode(*response.Detail.Message, *response.Code, baseErr, 0)
+					} else {
+						//in case of not being able to decode the error
+						err = errors.WrapInner("error marshalling", baseErr, 0)
+					}
 
 					return err
 				}
