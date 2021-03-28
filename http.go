@@ -125,7 +125,7 @@ func request(method string, logger Logger, url string, obj interface{}, target i
 					}
 					response := Response{}
 					b := strings.Replace(body, "'", "\"", -1)
-					e = json.Unmarshal([]byte(body), &response)
+					e = json.Unmarshal([]byte(b), &response)
 				
 					//check if the error was parsed
 					if e == nil && response.Code != nil && response.Detail.Message != nil{
