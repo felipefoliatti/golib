@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"io"
 
 	"github.com/felipefoliatti/backoff"
 	"github.com/felipefoliatti/errors"
@@ -41,22 +42,35 @@ func request(method string, logger Logger, url string, obj interface{}, target i
 		var resp *http.Response
 		var req *http.Request
 
-		b := &bytes.Buffer{}
+		var buffer io.Reader = bytes.NewBuffer([]byte{})
 
 		if obj != nil {
-			enc := json.NewEncoder(b)
-			enc.SetEscapeHTML(false)
 
-			e = enc.Encode(obj)
-			err = errors.WrapInner("error marshalling", e, 0)
+			switch obj.(type) {
+			case io.Reader:
+				//in case of it being a io.Reader, do nothing
+				buffer = obj.(io.Reader)
+			default:
+				//in case of it being any other object, try to convert
+				b := &bytes.Buffer{}
+				enc := json.NewEncoder(b)
+				enc.SetEscapeHTML(false)
+	
+				e = enc.Encode(obj)
+				err = errors.WrapInner("error marshalling", e, 0)
+	
+				if err == nil {
+					j := []byte(string(b.Bytes()))
+					buffer = bytes.NewBuffer(j)
+				}
+			}
 		}
 
 		if err != nil {
 			return err
 		}
 
-		j := []byte(string(b.Bytes()))
-		req, e = http.NewRequest(method, url, bytes.NewBuffer(j))
+		req, e = http.NewRequest(method, url, buffer)
 		err = errors.WrapInner("error creating the request", e, 0)
 
 		if headers != nil {
