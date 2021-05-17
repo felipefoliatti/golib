@@ -73,14 +73,19 @@ func request(method string, logger Logger, url string, obj interface{}, target i
 		req, e = http.NewRequest(method, url, buffer)
 		err = errors.WrapInner("error creating the request", e, 0)
 
+		hasContent := false
 		if headers != nil {
 			for key, value := range headers {
+				hasContent = hasContent || strings.EqualFold(key, "Content-Type")
 				req.Header.Add(key, value)
 			}
 		}
 
 		if err == nil {
-			req.Header.Set("Content-Type", "application/json")
+			//only add a header if content-type wasn't added
+			if !hasContent {
+				req.Header.Set("Content-Type", "application/json")
+			}
 
 			client := http.Client{Timeout: time.Duration(10 * time.Second)}
 			resp, e = client.Do(req)
