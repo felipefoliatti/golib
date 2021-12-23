@@ -179,7 +179,7 @@ func (q *amqQueue) Send(content *string) (*string, *errors.Error) {
 
 	var err *errors.Error
 	var e error
-	guid, e := uuid.NewV4()
+	guid := uuid.NewV4()
 
 	e = backoff.Retry(func() error {
 

@@ -121,7 +121,7 @@ func NewQueue(name *string, sufix *string, endpoint *string, accessKey *string, 
 func (q *sqsQueue) Send(content *string) (*string, *errors.Error) {
 
 	var err *errors.Error
-	guid := uuid.Must(uuid.NewV4())
+	guid := uuid.NewV4()
 
 	req, e := q.svc.SendMessage(&sqs.SendMessageInput{
 		MessageBody:            content,
