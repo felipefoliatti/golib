@@ -9,7 +9,7 @@ require (
 	github.com/influxdata/influxdb1-client v0.0.0-20190402204710-8ff2fc3824fc
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/rubenv/sql-migrate v0.0.0-20190618074426-f4d34eae5a5c
-	github.com/satori/go.uuid v0.0.0-20190618074426-b2ce2384e17b
+	github.com/satori/go.uuid v1.2.0
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a
 	golang.org/x/text v0.3.2
 	gopkg.in/gorp.v1 v1.7.2 // indirect

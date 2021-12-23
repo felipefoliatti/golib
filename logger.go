@@ -87,7 +87,7 @@ func (l *LoggerImpl) log(canlog bool, level Level, data func() interface{}, acti
 
 		//if no id is provided, adds one
 		if _, ok := m["id"]; !ok {
-			m["id"] = uuid.Must(uuid.NewV4())
+			m["id"] = uuid.NewV4()
 		}
 
 		json, _ := json.Marshal(m)
