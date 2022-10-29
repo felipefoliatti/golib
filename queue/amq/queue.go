@@ -1,4 +1,4 @@
-package amq
+package main
 
 import (
 	"crypto/tls"
@@ -258,6 +258,7 @@ func (q *amqQueue) Read() ([]*Message, *errors.Error) {
 		}
 
 	loop:
+		//start loop
 		for {
 			select {
 			case nMsg = <-q.subscription.C:
@@ -265,11 +266,12 @@ func (q *amqQueue) Read() ([]*Message, *errors.Error) {
 			case <-time.After(q.wait):
 				//check if is any message to return
 				for i, m := range q.messages {
+
 					if m.available.Before(time.Now()) {
 						m.available = time.Now().Add(time.Duration(math.Pow(2, float64(m.times))) * time.Second)
 
 						m.times++
-						m.times = int(math.Max(float64(m.times), 12)) //at most, 1h
+						m.times = int(math.Min(float64(m.times), 12)) //at most, 1h
 
 						//remove from list
 						q.messages = append(q.messages[:i], q.messages[i+1:]...)
@@ -289,9 +291,9 @@ func (q *amqQueue) Read() ([]*Message, *errors.Error) {
 				//check the next
 				q.wait = time.Hour
 				for _, m := range temp {
-					since := time.Since(m.available)
-					if since < q.wait {
-						q.wait = since
+					until := time.Until(m.available)
+					if until < q.wait {
+						q.wait = until
 					}
 				}
 
@@ -301,6 +303,7 @@ func (q *amqQueue) Read() ([]*Message, *errors.Error) {
 				}
 			}
 		}
+		//end loop
 
 		if nMsg != nil && nMsg.Err != nil {
 			if q.subscription != nil {
