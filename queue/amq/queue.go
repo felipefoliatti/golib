@@ -1,4 +1,4 @@
-package main
+package amq
 
 import (
 	"crypto/tls"
