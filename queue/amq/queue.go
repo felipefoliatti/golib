@@ -373,6 +373,7 @@ func (q *amqQueue) NAck(handle *Message) *errors.Error {
 }
 
 func (q *amqQueue) Postpone(msg *Message) *errors.Error {
+	msg.available = time.Now().Add(time.Minute) //wait at least 1 minute
 	q.messages = append(q.messages, msg)
 	q.wait = time.Second
 	return nil

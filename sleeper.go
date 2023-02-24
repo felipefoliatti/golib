@@ -20,15 +20,18 @@ type sleeperImpl struct {
 	action func(erro *errors.Error, errors int, wait time.Duration)
 
 	lastError error
+	lastTime  time.Time
 	errors    int
 }
 
 //Eval realiza uma avaliação do erro para ver se ele é recorrente
 //Se ele for, então realiza uma parada, levando em conta o limite max
 //Por fim, uma função action será executada, informando se houve ou não parada, e o tempo de parada
+//Em 10 min, limpa
 func (s *sleeperImpl) Eval(erro *errors.Error) *errors.Error {
-	if s.lastError != nil && erro != nil && s.lastError.Error() == erro.Error() {
+	if s.lastError != nil && erro != nil && s.lastError.Error() == erro.Error() && time.Since(s.lastTime) < time.Minute*10 {
 
+		s.lastTime = time.Now()
 		s.errors = int(math.Min(float64(s.errors+1), float64(s.max+1)))       //s.max + 1, já que diminiu um em 2^(s.errors-1)
 		wait := time.Second * time.Duration(math.Pow(2, float64(s.errors-1))) //Começa a esperar após o segundo erro igual, logo s.erros-1 para começar a base de espera em 1
 
@@ -39,6 +42,7 @@ func (s *sleeperImpl) Eval(erro *errors.Error) *errors.Error {
 	} else if erro != nil {
 
 		s.lastError = erro
+		s.lastTime = time.Now()
 		s.errors = 1
 		s.action(erro, s.errors, 0)
 
