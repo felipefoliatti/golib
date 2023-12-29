@@ -10,8 +10,8 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-//Statement representa uma estrutura de instrução ao banco de dados
-//Ela é composta pelo statement, que é uma string parametrizada com o comando e pelos argumentos que irão substituir esses padrões
+// Statement representa uma estrutura de instrução ao banco de dados
+// Ela é composta pelo statement, que é uma string parametrizada com o comando e pelos argumentos que irão substituir esses padrões
 type Statement struct {
 	Statement string
 	Args      []interface{}
@@ -123,7 +123,7 @@ func (m *mySqlDatabase) Run(statements ...Statement) ([]sql.Result, *errors.Erro
 	results := []sql.Result{}
 
 	if m.db == nil {
-		m.db, e = sqlx.Open(*m.drivername, *m.url+*m.database /*+"?interpolateParams=true"*/)
+		m.db, e = sqlx.Open(*m.drivername, *m.url+*m.database /*+"?interpolateParams=true"*/ +"?parseTime=true")
 		err = errors.WrapInner("error opening the database", e, 0)
 		if err == nil {
 			m.db.SetMaxOpenConns(5)
@@ -172,7 +172,7 @@ func (m *mySqlDatabase) RunMisc(statements ...Statement) ([]interface{}, *errors
 	results := []interface{}{}
 
 	if m.db == nil {
-		m.db, e = sqlx.Open(*m.drivername, *m.url+*m.database /*+"?interpolateParams=true"*/)
+		m.db, e = sqlx.Open(*m.drivername, *m.url+*m.database /*+"?interpolateParams=true"*/ +"?parseTime=true")
 		err = errors.WrapInner("error opening the database", e, 0)
 		if err == nil {
 			m.db.SetMaxOpenConns(5)
