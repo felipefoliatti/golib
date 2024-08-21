@@ -5,10 +5,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
-	"io"
 
 	"github.com/felipefoliatti/backoff"
 	"github.com/felipefoliatti/errors"
@@ -55,10 +55,10 @@ func request(method string, logger Logger, url string, obj interface{}, target i
 				b := &bytes.Buffer{}
 				enc := json.NewEncoder(b)
 				enc.SetEscapeHTML(false)
-	
+
 				e = enc.Encode(obj)
 				err = errors.WrapInner("error marshalling", e, 0)
-	
+
 				if err == nil {
 					j := []byte(string(b.Bytes()))
 					buffer = bytes.NewBuffer(j)
@@ -95,7 +95,7 @@ func request(method string, logger Logger, url string, obj interface{}, target i
 
 				defer resp.Body.Close()
 
-				if resp.StatusCode == 200 || resp.StatusCode == 202 {
+				if resp.StatusCode == 200 || resp.StatusCode == 201 || resp.StatusCode == 202 {
 
 					err = nil
 					if target != nil {
@@ -121,7 +121,7 @@ func request(method string, logger Logger, url string, obj interface{}, target i
 					if target != nil {
 						b := strings.Replace(body, "'", "\"", -1)
 						_ = json.Unmarshal([]byte(b), &target)
-					} 
+					}
 
 					//cleans up the string to print
 					pbody := strings.Replace(body, "\"", "'", -1)
@@ -145,9 +145,9 @@ func request(method string, logger Logger, url string, obj interface{}, target i
 					response := Response{}
 					b := strings.Replace(body, "'", "\"", -1)
 					e = json.Unmarshal([]byte(b), &response)
-				
+
 					//check if the error was parsed
-					if e == nil && response.Code != nil && response.Detail.Message != nil{
+					if e == nil && response.Code != nil && response.Detail.Message != nil {
 						//if possible to decode the error
 						err = errors.WrapInnerWithCode(*response.Detail.Message, *response.Code, baseErr, 0)
 					} else {
