@@ -42,7 +42,7 @@ func NewMigrator(drivername *string, database *string, url *string) (*SqlMigrate
 	if err != nil {
 		return nil, err
 	}
-	_, e = db.Exec("CREATE DATABASE IF NOT EXISTS " + *mig.database)
+	_, e = db.Exec("CREATE DATABASE IF NOT EXISTS `" + *mig.database + "`")
 	err = errors.WrapInner("error checking/creating the database", e, 0)
 
 	db.Close()
