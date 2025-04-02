@@ -10,7 +10,17 @@ require (
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/rubenv/sql-migrate v0.0.0-20190618074426-f4d34eae5a5c
 	github.com/satori/go.uuid v1.2.0
-	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a
-	golang.org/x/text v0.3.2
+	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
+	golang.org/x/text v0.3.8
+)
+
+require (
+	github.com/gobuffalo/packr v1.30.1 // indirect
+	github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af // indirect
+	github.com/stretchr/testify v1.8.1 // indirect
+	github.com/ziutek/mymysql v1.5.4 // indirect
+	golang.org/x/net v0.0.0-20220722155237-a158d28d115b // indirect
+	google.golang.org/appengine v1.6.7 // indirect
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/gorp.v1 v1.7.2 // indirect
 )
