@@ -123,12 +123,37 @@ func request(method string, logger Logger, url string, obj interface{}, target i
 						_ = json.Unmarshal([]byte(b), &target)
 					}
 
-					//cleans up the string to print
-					pbody := strings.Replace(body, "\"", "'", -1)
-					var baseErr error
+					//try to parse object
+					var ojson *string
+					var obytes []byte
 
+					//try to parse body to json
+					obytes, e = json.Marshal(body)
+
+					if e == nil {
+						temp := string(obytes)
+						ojson = &temp
+					}
+
+					var pbody string = ""
+
+					//select the information to print
+					if ojson == nil {
+						//if it was not possible to convert body to json, print the string
+						//cleans up the string to print
+						pbody = body
+					} else {
+						//otherwise print the json
+						pbody = *ojson
+					}
+
+					//cleans up the string to print
+					pbody = strings.Replace(pbody, "\"", "'", -1)
+
+					var baseErr error
 					//create a base error (or a caused by)
 					if obj == nil {
+
 						baseErr = fmt.Errorf("error in service - %s %s -> code %d and body %s", method, url, resp.StatusCode, pbody)
 					} else {
 						baseErr = fmt.Errorf("error in service - %s %s - body: %v -> code %d and body %s", method, url, obj, resp.StatusCode, pbody)
