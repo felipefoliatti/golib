@@ -27,6 +27,8 @@ type Database interface {
 	Transaction(fun func(tx *sqlx.Tx) *errors.Error) *errors.Error
 	RunTx(tx *sqlx.Tx, statements ...Statement) ([]sql.Result, *errors.Error)
 	Do(act func(db *sqlx.DB) *errors.Error) *errors.Error
+
+	Db() *sqlx.DB
 }
 
 // MySqlDatabase é uma implementação concreta da interface Database para MySql
@@ -38,6 +40,10 @@ type mySqlDatabase struct {
 	database   *string
 	timezone   string
 	db         *sqlx.DB
+}
+
+func (m *mySqlDatabase) Db() *sqlx.DB {
+	return m.db
 }
 
 // NewDatabase cria uma instância concreta do MySqlDatabase
